@@ -1,125 +1,130 @@
 ---
 title: "Lab 01: Basics of Matrix Algebra in R"
 author: "Donggyun Kim"
-date: "1/19/2018"
+date: "1/24/2018"
 output: html_document
 ---
 
-# 1) Basic Vector and Matrix manipulations in R
+# 1) Basic Vector and Matrix manipulation in R
 
-A vector x
+A vector $\mathbf{x}$
 ```{r}
 x <- 1:9
 ```
 
-Use the vector x to make matrices
+Using $\mathbf{x}$, create following matrices
 ```{r}
-matrix(x, nrow = 3, ncol = 3) # column-major
-
-matrix(x, nrow = 3, ncol = 3, byrow = 1) # row-major
+matrix(x, nrow = 3, ncol = 3)
+matrix(x, nrow = 3, ncol = 3, byrow = 1)
 ```
 
-Identity matrix 5x5
+Create identity matrix
 ```{r}
 diag(5)
 ```
 
-Three vectors a1, a2, and a3
+Three vectors, $\mathbf{a_1}, \mathbf{a_2}, \mathbf{a_3}$
 ```{r}
 a1 <- c(2, 3, 6, 7, 10)
 a2 <- c(1.88, 2.05, 1.70, 1.60, 1.78)
 a3 <- c(80, 90, 70, 50, 75)
 ```
 
-Use `cbind()` to form matrix 5x3
+Use `cbind()` to create a matrix, $A_{5 \times 3}$
 ```{r}
 A <- cbind(a1, a2, a3)
 rownames(A) <- 1:5
 A
 ```
 
-Three vectors b1, b2, and b3
+Three vectors, $\mathbf{b_1}, \mathbf{b_2}, \mathbf{b_3}$
 ```{r}
 b1 <- c(1, 4, 5, 8, 9)
 b2 <- c(1.22, 1.05, 3.60, 0.40, 2.54)
 b3 <- c(20, 40, 30, 80, 100)
 ```
 
-Use `rbind()` to form matrix 3x5
+Use `rbind()` to create a matrix, $B_{3 \times 5}$
 ```{r}
 B <- rbind(b1, b2, b3)
 colnames(B) <- 1:5
 B
 ```
 
-Use `%*%` to compute matrix products
+Compute matrix products using `%*%` operator  
+$\mathbf{AB}$
 ```{r}
 A %*% B
+```
+$\mathbf{BA}$
+```{r}
 B %*% A
+```
+$\mathbf{A^\top B^\top}$
+```{r}
 t(A) %*% t(B)
+```
+$\mathbf{B^\top A^\top}$
+```{r}
 t(B) %*% t(A)
 ```
 
-Use the data frame "iris" to compute a linear combination
+Obtain a linear combination via a matrix multiplication  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 $\times$ Sepal.Length $+$ 2 $\times$ Sepal.Width $+$ 3 $\times$ Petal.Length $+$ 4 $\times$ Petal.Width  
 ```{r}
-library(dplyr) # load a package
-
-dat <- select(iris, 1:4) # need first 4 columns of data frame "iris"
-
-mat <- as.matrix(dat) # convert data frame into matrix
-
-rownames(mat) <- 1:nrow(mat)
-
-head(mat, n = 10)
-
-v <- 1:4 # create numeric vector to compute a linear combination
-
-A <- mat %*% v
-
-col_name <- paste(v, colnames(mat), sep = "*")
-
-colnames(A) <- paste(col_name, collapse = " + ")
-
-head(A, n = 10)
+M_iris <- as.matrix(iris[1:4])
+N <- matrix(rep(1:4, nrow(iris)), nrow = 4)
+M <- M_iris %*% 1:4
+rownames(M) <- 1:150
+colnames(M) <- paste(1:4, colnames(M_iris), collapse = " + ")
+head(M, 10)
 ```
 
-Use `t()` and `%*%` to write a function `vnorm()` that computes l2 norm
+Write a function `vnorm()` that computes the length of a vector:  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $||\mathbf{v}|| = \sqrt{\mathbf{v^\top}\mathbf{v}}$
 ```{r}
-vnorm <- function(x) {
-  as.vector(sqrt(t(x) %*% x)) # convert a matrix into a vector
+vnorm <- function(v) {
+  as.numeric(sqrt(t(v) %*% v))
 }
-
-v <- 1:5
-vnorm(v)
 ```
 
-Use `vnorm()` to create a unit vectro u
+Given a vector, $\mathbf{v}$
 ```{r}
-v
+v <- 1:5
+```
+
+Find a unit vector of $\mathbf{v}$
+```{r}
 u <- v / vnorm(v)
 u
+```
+
+The length of $\mathbf{u}$ is
+```{r}
 vnorm(u)
 ```
 
-Write a function `is_square()` to test whether a matrix is a square matrix
+Write a function `is_square()` to check whether the provided matrix is a square matrix
 ```{r}
 is_square <- function(X) {
   if (!is.matrix(X)) {
-    stop("input must be a matrix")
+    stop("The input must be a matrix")
   }
   
-  if (ncol(X) == nrow(X)) {
+  if (nrow(X) == ncol(X)) {
     TRUE
   } else {
     FALSE
   }
 }
+```
 
-I <- diag(3)
-I
-is_square(I)
+Test if the function works
+```{r}
+D <- diag(4)
+D
+is_square(D)
 
-A <- matrix(1:6, ncol = 2, nrow = 3)
 A
 is_square(A)
 ```
@@ -127,159 +132,209 @@ is_square(A)
 Write a function `mtrace()` to compute the trace of a square matrix
 ```{r}
 mtrace <- function(X) {
-  if(!is_square(X)) {
-    stop("The matrix must be a square matrix")
+  if (!is.matrix(X) | !is_square(X)) {
+    stop("The input must be a suare matrix")
   }
   
   sum(diag(X))
 }
-
-A <- matrix(1:9, ncol = 3, nrow = 3)
-A
-mtrace(A)
 ```
 
-Given two square matrices A and B
+Given two square matrices $\mathbf{A}$ and $\mathbf{B}$, verify that `mtrace()` is linear mapping:
 ```{r}
 A <- matrix(1:9, ncol = 3, nrow = 3)
+A
+
 B <- diag(3)
-A
 B
-C <- A + B
-D <- 5 * A
-
-mtrace(C) == mtrace(A) + mtrace(B)
-mtrace(D) == 5 * mtrace(A)
 ```
 
-Trace of products
+- $\operatorname{tr}(A + B) = \operatorname{tr}(A) + \operatorname{tr}(B)$
 ```{r}
-X <- matrix(1:6, nrow = 2, ncol = 3)
-Y <- matrix(11:16, nrow = 2, ncol = 3)
-X
-Y
-
-tXY <- crossprod(X, Y)
-XtY <- tcrossprod(X, Y)
-tYX <- crossprod(Y, X)
-YtX <- tcrossprod(Y, X)
-
-mtrace(tXY) == mtrace(XtY)
-mtrace(XtY) == mtrace(tYX)
-mtrace(tYX) == mtrace(YtX)
-mtrace(YtX) == mtrace(tXY)
+mtrace(A + B)
+mtrace(A) + mtrace(B)
 ```
+
+- $\operatorname{tr}(cA) = c \times \operatorname{tr}(A)$
+```{r}
+mtrace(3 * A)
+3 * mtrace(A)
+```
+
+**Trace of products**  
+Given two matrices $\mathbf{X}$ and $\mathbf{Y}$, verify that
+$$
+\operatorname{tr}(\mathbf{X^\top Y}) = \operatorname{tr}(\mathbf{XY^\top}) = \operatorname{tr}(\mathbf{Y^\top X}) = \operatorname{tr}(\mathbf{YX^\top})
+$$
+
+- Prove that trace function is commutative  
+$$
+\operatorname{tr}(\mathbf{AB}) = \operatorname{tr}(\mathbf{BA})
+$$
+Because $\mathbf{AB}_{ij} = \displaystyle \sum_{k = 1}^{n}a_{ik}b_{kj}$ for matrices $\mathbf{A_{p \times n}}$ and $\mathbf{B_{n \times p}}$,   
+$\operatorname{tr}(\mathbf{AB}) = \displaystyle \sum_{i = 1}^p\sum_{k = 1}^na_{ik}b_{ki}$ and $\operatorname{tr}(\mathbf{BA}) = \displaystyle \sum_{k = 1}^n\sum_{i = 1}^pb_{ki}a_{ik}$.  
+$$
+\operatorname{tr}(\mathbf{AB}) = \displaystyle \sum_{i = 1}^p\sum_{k = 1}^na_{ik}b_{ki} = \displaystyle \sum_{i = 1}^p\sum_{k = 1}^nb_{ki}a_{ik} = \displaystyle \sum_{k = 1}^n\sum_{i = 1}^pb_{ki}a_{ik} = \operatorname{tr}(\mathbf{BA})
+$$
+
+- Prove that the trace of a square mtrix, $\mathbf{A}_{n \times n}$ equals the trace of transpose of the square matrix
+$$
+\operatorname{tr}(\mathbf{A}) = \operatorname{tr(\mathbf{A^\top)}}
+$$
+Because $\mathbf{A}_{ij} = a_{ij}$ and $\mathbf{A^\top}_{ij} = a_{ji}$,  
+$\operatorname{tr}(\mathbf{A}) = \displaystyle \sum_{i = 1}^na_{ii}$ and $\operatorname{tr}(\mathbf{A^\top}) = \displaystyle \sum_{j = 1}^na_{jj}$  
+$$
+\operatorname{tr}(\mathbf{A}) = \displaystyle \sum_{i = 1}^na_{ii} = \displaystyle \sum_{j = 1}^na_{jj} = \operatorname{tr}(\mathbf{A^\top}) 
+$$
+
+It is proved that $\operatorname{tr}(\mathbf{XY^\top}) = \operatorname{tr}(\mathbf{Y^\top X)}$
+
+
+Let $\mathbf{P = X^\top Y}$. This implies $\mathbf{P^\top} = (\mathbf{X^\top Y})^\top = \mathbf{Y^\top X}$   
+Also, $\operatorname{tr}(\mathbf{P}) = \operatorname{tr}(\mathbf{X^\top Y}) = \operatorname{tr}(\mathbf{Y^\top X}) = \operatorname{tr}(\mathbf{P^\top})$  
   
+  
+Using two properties of trace function above, it is verified that 
+$$
+\operatorname{tr}(\mathbf{X^\top Y}) = \operatorname{tr}(\mathbf{XY^\top}) = \operatorname{tr}(\mathbf{Y^\top X}) = \operatorname{tr}(\mathbf{YX^\top})
+$$
+
 ---
-  
+
 # 2) Transformation and Scaling Operations
 
-Create a matrix M
+Create a Matrix $\mathbf{M}$
 ```{r}
-M <- mtcars %>% select(mpg, disp, hp, drat, wt)
-M <- as.matrix(M)
+M <- mtcars[c("mpg", "disp", "hp", "drat", "wt")]
+head(M, n = 10)
 ```
 
-Use `apply()` to compute the vector containing the means of the columns in M
+Compute the vector containing the means of the columns in $\mathbf{M}$
 ```{r}
-M_mean <- apply(M, 2, mean)
-names(M_mean) <- paste("mean", names(M_mean), sep = "_")
-M_mean
+apply(M, 2, mean)
 ```
 
-A matrix Mc of mean-centered data
+Create a matrix $\mathbf{Mc}$, mean-centered data
 ```{r}
 Mc <- scale(M, center = TRUE, scale = FALSE)
 head(Mc, n = 10)
-
-Mc_mean <- apply(Mc, 2, mean)
-names(Mc_mean) <- paste("mean", names(Mc_mean), sep = "_")
-Mc_mean
 ```
 
-Use `sweep()` to mean-center M by sweeping out the vector of column means
+Test if $\mathbf{Mc}$ is mean-centered
 ```{r}
-sweep_M <- sweep(M, 2, apply(M, 2, mean), FUN = "-")
-head(Mc == sweep_M, n = 10)
+colMeans(Mc)
 ```
 
-Compute a vector of column maxima from M
+Use `sweep()` to create a mean-centered matrix of $\mathbf{M}$
 ```{r}
-M_max <- apply(M, 2, max)
-names(M_max) <- paste("max", names(M_max), sep = "_")
-M_max
+A <- sweep(M, 2, colMeans(M), "-")
+head(A, 10)
+
+head(A == Mc, 10)  # compare the result with Mc
 ```
 
-Use `sweep()` to scale the columns of M by dividing by the column maxima
+Compute a vector of column maxima from $\mathbf{M}$
 ```{r}
-head(sweep(M, 2, M_max, FUN = "/"), n = 10)
+maxcol_M <- apply(M, 2, max)
+maxcol_M
 ```
 
-Compute a matrix in which all columns of M are scaled shuch that they have minimum = 0 and maximum = 1
+Use `sweep()` to scale the columns of $\mathbf{M}$ by dividing by the column maxima
 ```{r}
-M_min <- apply(M, 2, min)
-max_min <- M_max - M_min
-M1 <- sweep(M, 2, M_min, FUN = "-")
-M2 <- sweep(M1, 2, max_min, FUN = "/")
-head(M2, n = 10)
-max(M2)
-min(M2)
+sweep(M, 2, maxcol_M, "/")
 ```
 
-Compute the sample covariance matrix of the variables in M
+Compute a matrix in which all columns of $\mathbf{M}$ scaled such that they have minimum = 0 and maximum = 1
 ```{r}
-crossprod(Mc) / (nrow(Mc) - 1)
-cov(M) # compare the result to the answer
+maxcol_M
+
+mincol_M <- apply(M, 2, min)
+mincol_M
+
+B <- sweep(M, 2, mincol_M, "-")
+B <- sweep(B, 2, maxcol_M - mincol_M, "/")
+head(B, 10)
+summary(B)
 ```
 
-Compute the correlation matrix of the variables in M
+Compute the sample covariance matrix of $\mathbf{M}$
 ```{r}
-cov_M <- crossprod(Mc) / (nrow(Mc) - 1)
-M_var <- apply(M, 2, var)
-M_sd <- sqrt(M_var)
-sd_M <- tcrossprod(M_sd)
-cov_M / sd_M
-cor(M) # compare the result to the answer
+n <- nrow(Mc)
+crossprod(Mc) / (n - 1)
+
+cov(M) # compare the result with cov(M)
 ```
 
-Write a function `dummify()` that takes a factor or a character vector, and which returns a matrix with dummy indicators. 
+Compute the correlation matrix of $\mathbf{M}$
 ```{r}
-dummify <- function(x) {
-  if (!is.factor(x) & !is.character(x)) {
-    stop("input must be factor or character")
+Msd <- scale(M, center = TRUE, scale = TRUE)  # create a standard matirx of M
+
+n <- nrow(Msd)
+crossprod(Msd) / (n - 1)
+
+cor(M)  # compare the result with cor(M)
+```
+
+Write a function `dummify()` that takes a factor or a character vector, and which returns a matrix with dummy indicators.
+```{r}
+dummify <- function(x, all = TRUE) {
+  if (!is.character(x) & !is.factor(x)) {
+    stop("The input must be a character or factor vector")
+  } else if (is.character(x)) {
+    x <- as.factor(x)  # convert x into factor if x is a character vector
+  } else if (!is.logical(all)) {
+    stop("The argument 'all' must be a logical value")
   }
   
-  levels <- as.factor(attributes(x)$levels)
   
-  m <- matrix(numeric(length(levels) * length(x)), ncol = length(levels), nrow = length(x))
-  colnames(m) <- levels
   
-  for (i in seq_along(x)) {
-    for (j in seq_along(levels)) {
-      if (x[i] == levels[j]) {
-        m[i, j] <-  1
-      }
-    }
+  level <- attributes(x)$levels  # create a vector of levels of x
+  n <- length(level)  # number of elements in level
+  
+  if (all == FALSE) { 
+    level <- level[-n]
+    n <- n - 1
   }
   
-  m
+  M <- matrix((numeric(length(x) * n)), ncol = n)
+  
+  for (i in 1:n) {
+    M[, i] <- as.numeric(x == level[i])
+  }
+  
+  colnames(M) <- level
+  M
 }
-
-cyl <- factor(mtcars$cyl)
-dummify(cyl)
 ```
 
-Write a function `crosstable()` that takes two factors, and which returns a cross-table between those factors. 
+Test `dummify()` works
+```{r}
+cyl <- factor(mtcars$cyl)
 
+CYL1 <- dummify(cyl, all = TRUE)
+head(CYL1, 10)
+
+CYL2 <- dummify(cyl, all = FALSE)
+head(CYL2, 10)
+```
+
+Write a function `corsstable()` that takes two factors, and which returns a cross-table between those factors
 ```{r}
 crosstable <- function(x, y) {
-  m1 <- dummify(x)
-  m2 <- dummify(y)
-  crossprod(m1, m2)
+  if(!is.factor(x) | !is.factor(y)) {
+    stop("The input must be two factor vectors")
+  }
+  
+  crossprod(dummify(x), dummify(y))
 }
+```
 
-cyl <- factor(mtcars$cyl)
+Test `crostable()` works
+```{r}
+cyl
+
 gear <- factor(mtcars$gear)
-xtb <- crosstable(cyl, gear)
-xtb
+gear
+
+crosstable(cyl, gear)
 ```
