@@ -1,0 +1,217 @@
+---
+title: "Lab 02: Matrix Decompositions"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "1/31/2018"
+output: pdf_document
+---
+
+# 1) Singular Value Decomposition
+\[
+\mathbf{M} = \mathbf{UDV^\top}
+\]
+
+- $\mathbf{M}$: $n \times p$ matrix of full column-rank $p$, $(n > p)$  
+- $\mathbf{U}$: $n \times p$ matrix of left singular vectors  
+- $\mathbf{D}$: $p \times p$ diagonal matrix of singular values  
+- $\mathbf{V}$: $p \times p$ matrix of right sungular vectors  
+  
+  
+1) Use `svd()` to compute SVD of state.x77
+```{r}
+SVD <- svd(state.x77)
+SVD
+```
+  
+  
+2) Create the matrices, $\mathbf{U}$, $\mathbf{D}$, and $\mathbf{V}$
+```{r}
+U <- SVD$u
+U
+
+D <- diag(SVD$d)
+D
+
+V <- SVD$v
+V
+```
+  
+  
+3) Confirm that the data state.x77 can be obtained as the product of: $\mathbf{UDV^\top}$
+```{r}
+UDtV <- U %*% D %*% t(V)
+
+head(UDtV, 10)
+
+head(state.x77, 10)
+```
+
+**SVD and best Rank-one Approximations**
+\[
+\mathbf{X_r} = \displaystyle \sum_{k = 1}^r l_k\mathbf{u}_k{\mathbf{v}_k}^t
+\]
+1) Create an object state2 by selecting the first five columns of state.x77
+```{r}
+state2 <- state.x77[, 1:5]
+head(state2, 10)
+```
+  
+  
+2) Perform the SVD decomposition of state2
+```{r}
+SVD_2 <- svd(state2)
+SVD_2
+```
+  
+  
+3) Confirm that the sum: $\displaystyle\sum_{k=1}^5l_k\mathbf{u}_k\mathbf{v}_k^t$ equals state2
+```{r}
+l <- SVD_2$d
+U <- SVD_2$u
+V <- SVD_2$v
+
+X <- matrix(0, nrow = nrow(state2), ncol = ncol(state2))
+for (i in 1:length(l)) {
+  X <- X + l[i] * U[, i] %*% t(V[, i])
+}
+
+head(X, 10)
+
+head(state2, 10)
+```
+
+
+**Using SVD output to visualize data**
+```{r}
+library(ggplot2)
+
+U <- svd(state.x77)$u
+U1 <- U[, 1]
+U2 <- U[, 2]
+
+plot(U1, U2, main = "Plot of States (first 2 left singular vectors")
+text(U1, U2, rownames(state.x77))
+```
+
+```{r}
+V <- svd(state.x77)$v
+
+V1 <- V[, 1]
+V2 <- V[, 2]
+
+plot(V1, V2, main = "Plot of Variables (first 2 right singular vectors")
+text(V1, V2, colnames(state.x77))
+```
+
+# 2) Eigenvalue Decomposition
+1) Compute a matrix X as the mean-centerd data of state.x77
+```{r}
+X <- sweep(state.x77, 2, colMeans(state.x77), "-")
+head(X, 10)
+```
+
+2) Calculate the sum-of-sqares and cross-products matrix $\mathbf{S} = \mathbf{X}^\top\mathbf{X}$
+```{r}
+S <- crossprod(as.matrix(X))
+S
+```
+
+3) Confirm that cov($\mathbf{X}$) is equal to $\frac{1}{n - 1}\mathbf{X}^\top\mathbf{X}$
+```{r}
+n <- nrow(state.x77)
+S / (n - 1)
+
+cov(X)
+```
+
+4) Use `solve()` to compute the inverse $\mathbf{S}^{-1}$
+```{r}
+solve(S)
+```
+
+5) USE `eigent()` to compute the EVD of $\mathbf{S} = \mathbf{V \Lambda V}^\top$
+```{r}
+EVD <- eigen(S)
+EVD
+```
+
+6) Confirm that $\mathbf{S}^{-1}$ can also be obtained as: $\mathbf{V}\mathbf{\Lambda}^{-1}\mathbf{V}^\top$
+```{r}
+V <- EVD$vectors
+L <- diag(EVD$values)
+
+V %*% solve(L) %*% t(V)
+
+solve(S)
+```
+
+**Power Method**
+```{r}
+A <- matrix(c(5, -14, 11, -4, 4, -4, 3, 6, -3), nrow = 3, byrow = 1)
+w0 <- c(1, 1, 1)
+
+eig <- function(X, v, k) {
+  for (i in 1:k) {
+    v_p <- X %*% v
+    v_c <- v_p / max(abs(v_p))
+    v <- v_c
+  }
+  val <- as.numeric(crossprod(v, X) %*% v / crossprod(v, v))
+  eig <- list(val, v)
+  names(eig) <- c("value", "vector")
+  eig
+}
+  
+eig(A, w0, 10)
+
+eigen(A)
+```
+
+**$l_p$ norm for Power Method**
+```{r}
+eig <- function(X, v, k, norm = Inf) {
+  for (i in 1:k) {
+    v_p <- X %*% v
+    if (norm == Inf) {
+      nm <- max(abs(v_p))
+    } else {
+      nm <- (sum(abs(v_p)^norm))^(1/norm)
+    }
+    v_c <- v_p / nm
+    v <- v_c
+  }
+  val <- as.numeric(crossprod(v, X) %*% v / crossprod(v, v))
+  eig <- list(val, v)
+  names(eig) <- c("value", "vector")
+  eig
+}
+
+eig(A, w0, 20)  # l-infinity norm
+
+eig(A, w0, 20, 2)  # l-2 norm
+
+eigen(A)
+```
+
+**Deflation and more eigenvectors**
+```{r}
+deflation <- function(X, v, k, norm = Inf) {
+  
+  eig <- eig(X, v, k, norm)
+  def <- list(eig$value, eig$vector)
+  names(def) <- c("values", "vectors")
+  
+  for(i in 2:nrow(X)) {
+  X <- X - eig$value * tcrossprod(eig$vector)
+  eig <- eig(X, v, k, norm)
+  def$values <- c(def$values, eig$value)
+  def$vectors <- cbind(def$vectors, eig$vector)
+  }
+  def
+}
+
+deflation(A, w0, 20, 2)
+
+eigen(A)
+```
