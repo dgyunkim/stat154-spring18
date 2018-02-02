@@ -1,0 +1,285 @@
+---
+title: "Problem Set 1: Matrix Algebra Review"
+author: 
+ - "Donggyun Kim"
+ - "27008257"
+ - "Lab 102"
+date: "2/1/2018"
+output: html_document
+---
+
+# Problem 1 
+```{r}
+X <- matrix(c(2, 3, -1, 4), nrow = 2, byrow = 1)
+X
+
+Y <- matrix(c(2, 0, 1, 1, -2, 3), nrow = 2, byrow = 1)
+Y
+
+Z <- matrix(c(1, 1, -1, 1, 0, 2), nrow = 3, byrow = 1)
+Z
+
+W <- matrix(c(1, 0, 8, 3), nrow = 2, byrow = 1)
+W
+
+I <- diag(2)
+I
+```
+
+# Problem 2
+a. $\mathbf{X} + \mathbf{Y}$  
+```{r, error = TRUE}
+X + Y
+dim(X)
+dim(Y)
+```
+Operation cannot be performed. $\mathbf{X}$ and $\mathbf{Y}$ have different dimensions.  
+
+b. $\mathbf{X}$ + $\mathbf{W}$
+```{r}
+X + W
+```
+
+c. $\mathbf{X}$ - $\mathbf{I}$
+```{r}
+X - I
+```
+
+d. $\mathbf{XY}$
+```{r}
+X %*% Y
+```
+
+e. $\mathbf{XI}$
+```{r}
+X %*% I
+```
+
+f. $\mathbf{X} + (\mathbf{Y} + \mathbf{Z})$  
+```{r, error = TRUE}
+X + (Y + Z)
+
+dim(X)
+dim(Y)
+dim(Z)
+```
+Operation cannot be performed. $\mathbf{X}$, $\mathbf{Y}$, and $\mathbf{Z}$ have different dimensions.  
+
+g. $\mathbf{Y}(\mathbf{I} + \mathbf{W})$
+```{r, error = TRUE}
+Y %*% (I + W)
+dim(I + W)
+dim(Y)
+```
+$\mathbf{Y}_{2 \times 3}$ and $(\mathbf{I + W})_{2 \times 2}$ do not match dimensions for matrix products.  
+
+# Problem 3
+a. Every orthogonal matrix is nonsingular: TRUE  
+For orhogonal matrices,  
+$\mathbf{QQ}^\top = \mathbf{I} \implies \mathbf{Q}^{-1} = \mathbf{Q}^\top$  
+A square matrix is singular if and only if its determinant is 0. If its determinant is 0, then it does not have an inverse matrix.  
+
+b. Every nonsingular matrix is orthogonal: FALSE  
+Let $\mathbf{A} = \left[ \begin{array}{ccc} 1 & 2 \\ 3 & 4 \end{array} \right]$  
+$\det(\mathbf{A}) = \left| \begin{array}{ccc} 1 & 2 \\ 3 & 4 \end{array} \right| = 4 - 6 = -2 \ne 0$  
+$\mathbf{A}$ is a nonsingular matrix. However,  
+$\mathbf{A}^\top = \left[ \begin{array}{ccc} 1 & 2 \\ 3 & 4 \end{array} \right]^\top = \left[ \begin{array}{ccc} 1 & 3 \\ 2 & 4 \end{array} \right]$  
+$\mathbf{AA}^\top = \left[ \begin{array}{ccc} 1 & 2 \\ 3 & 4 \end{array} \right] \left[ \begin{array}{ccc} 1 & 3 \\ 2 & 4 \end{array} \right]  = \left[ \begin{array}{ccc} 1 + 4 & 3 + 8 \\ 3 + 8 & 9 + 16 \end{array} \right] = \left[ \begin{array}{ccc} 5 & 11 \\ 11 & 25 \end{array} \right] \ne \mathbf{I}$  
+
+c. Every matrix of full rank is square: TRUE  
+
+d. Every square matrix is of full rank: FALSE  
+
+e. Every nonsingular matrix is of full rank: TRUE 
+
+# Problem 4
+$(\mathbf{A}_{ij})^\top = \mathbf{A}_{ji} \Leftrightarrow (\mathbf{A}^\top)_{ij} = \mathbf{A}_{ji}$  
+For $\mathbf{X}_{n \times p}$, $\mathbf{Y}_{p \times q}$, and $\mathbf{Z}_{q \times r}$,    
+$(\mathbf{XYZ})_{ij} = \displaystyle \sum _{k = 1}^p\sum_{l = 1}^q\mathbf{X}_{ik}\mathbf{Y}_{kl}\mathbf{Z}_{lj}$  
+$\begin{aligned} ((\mathbf{XYZ})_{ij})^\top &= (\mathbf{XYZ})_{ji} \\ &= \displaystyle \sum _{k = 1}^p\sum_{l = 1}^q\mathbf{X}_{jk}\mathbf{Y}_{kl}\mathbf{Z}_{li} \\ &= \sum _{k = 1}^p\sum_{l = 1}^q\mathbf{Z}_{li}\mathbf{Y}_{kl}\mathbf{X}_{jk} \\ &= \sum _{k = 1}^p\sum_{l = 1}^q(\mathbf{Z}^\top)_{il}(\mathbf{Y}^\top)_{lk}(\mathbf{X}^\top)_{kj} \\ &= (\mathbf{Z}^\top \mathbf{Y}^\top \mathbf{X}^\top)_{ij}  \end{aligned}$  
+$\therefore (\mathbf{XYZ})^\top = \mathbf{Z}^\top\mathbf{Y}^\top\mathbf{X}^\top$  
+
+# Problem 5
+From linear algebra class, we know that  
+$\langle\mathbf{Ax}, \mathbf{y}\rangle = \langle\mathbf{x},\mathbf{A}^*\mathbf{y}\rangle$, where $\langle\mathbf{x}, \mathbf{y}\rangle = \mathbf{x}^\top\mathbf{y}$ and $\mathbf{A}^*$ is conjugate traspose of $\mathbf{A}$  
+Since $\mathbf{A}_{n \times n}$ is symmetric and real value matrix,  
+$\mathbf{A}^* = \mathbf{A}^\top = \mathbf{A}$  
+$\lambda_i\langle \mathbf{v}_i, \mathbf{v}_j\rangle = \langle\lambda_i\mathbf{v}_i, \mathbf{v}_j\rangle = \langle\mathbf{Av}_i,\mathbf{v}_j\rangle = \langle\mathbf{v}_i,\mathbf{Av}_j\rangle = \langle\mathbf{v}_i,\lambda_j\mathbf{v}_j\rangle = \lambda_j\langle\mathbf{v}_i,\mathbf{v}_j\rangle$.  
+$\lambda_i \ne \lambda_j \implies \langle\mathbf{v}_i, \mathbf{v}_j\rangle = 0, \forall i \ne j, 1\le i,j \le n$  
+Therefore, $\mathbf{v}_i$ and $\mathbf{v}_j$ associated with two distinct eigenvalues $\lambda_i$ and $\lambda_j$ of $\mathbf{A}$ are mutually orthogonal.  
+
+# Problem 6
+Function `inner_product`
+```{r}
+inner_product <- function(v, u) {
+  if(length(v) != length(u)) {
+    stop("Vector v and u must have the same length!")
+  }
+  as.numeric(t(v) %*% u)  # display purpose
+}
+v <- c(1, 3, 5)
+u <- c(1, 2, 3)
+
+inner_product(v, u)
+```
+Function `projection`
+```{r}
+projection <- function(v, u) {
+  (inner_product(v, u) / inner_product(u, u)) * u
+}
+
+v <- c(1, 3, 5)
+u <- c(1, 2, 3)
+
+projection(v, u)
+```
+
+# Problem 7
+Gram-Schmit orthonormalization
+```{r}
+x <- c(1, 2, 3)
+y <- c(3, 0, 2)
+z <- c(3, 1, 1)
+
+u1 <- x
+u1
+u2 <- y - projection(y, u1)
+u2
+u3 <- z - projection(z, u2) - projection(z, u1)
+u3
+e1 <- u1/as.numeric(sqrt(inner_product(u1, u1)))
+e1
+e2 <- u2/as.numeric(sqrt(inner_product(u2, u2)))
+e2
+e3 <- u3/as.numeric(sqrt(inner_product(u3, u3)))
+e3
+```
+
+
+# Problem 8
+$l_p$-norm
+```{r}
+lp_norm <- function(x, p = 1) {
+  if (p == "max") {
+    max(abs(x))
+  } else {
+    (sum(abs(x)^p))^(1/p)
+  }
+}
+
+x <- c(-1, 2, -5)
+lp_norm(x)
+lp_norm(x, p = 2)
+lp_norm(x, p = "max")
+```
+
+# Problem 9
+ a.
+```{r}
+zero <- rep(0, 10)
+lp_norm(zero)
+```
+
+ b.
+```{r}
+ones <- rep(1, 5)
+lp_norm(ones, p = 2)
+```
+
+ c.
+```{r}
+u <- rep(0.4472136, 5)
+lp_norm(u, p = 2)
+```
+
+ d.
+```{r}
+u <- 1:500
+lp_norm(u, p = 100)
+```
+
+ e.
+```{r}
+u <- 1:500
+lp_norm(u, p = "max")
+```
+
+# Problem 10
+ a.
+$\mathbf{Av} = \lambda\mathbf{v} \implies (\mathbf{A} - \lambda\mathbf{I})\mathbf{v} = \mathbf{0} \implies \det(\mathbf{A} - \lambda\mathbf{I}) = \mathbf{0}$    
+$b\mathbf{Av} = b\lambda\mathbf{v} \implies b(\mathbf{A}- \lambda\mathbf{I})\mathbf{v} = \mathbf{0} \implies (b\mathbf{A} - b\lambda\mathbf{I})\mathbf{v} = \mathbf{0}$  
+$\det(\mathbf{A} - \lambda\mathbf{I}) = \mathbf{0} \implies \det(b\mathbf{A} - b\lambda\mathbf{I}) = \mathbf{0}$  
+$b\mathbf{A} = \mathbf{B}, b\lambda = \lambda_b \implies (\mathbf{B} - \lambda_b\mathbf{I})\mathbf{v} = \mathbf{0}$  
+$\mathbf{Bv} = \lambda_b\mathbf{v}$ $\mathbf{B}$ has an eigenvalue $\lambda_b$ with eigenvector $\mathbf{v}$  
+Therefore, $b\mathbf{A}$ has eigenvalue $b\lambda$ with eigenvector $\mathbf{v}$  
+
+ b.
+$\mathbf{Av} = \lambda\mathbf{v} \implies (\mathbf{A} - \lambda\mathbf{I})\mathbf{v} = \mathbf{0} \implies \det(\mathbf{A} - \lambda\mathbf{I}) = \mathbf{0}$  
+$(\mathbf{A} + c\mathbf{I})\mathbf{v} = \lambda\mathbf{v} + c\mathbf{v} = (\lambda+c)\mathbf{v} \implies (\mathbf{A} + c\mathbf{I})\mathbf{v} - (\lambda + c)\mathbf{v} = \mathbf{0}$  
+$\implies (\mathbf{A} + c\mathbf{I} - \lambda\mathbf{I} - c\mathbf{I})\mathbf{v} = \mathbf{0} \implies (\mathbf{A} - \lambda\mathbf{I})\mathbf{v} = \mathbf{0}$  
+$\mathbf{A} + c\mathbf{I} = \mathbf{C}, \lambda+c = \lambda_c \implies (\mathbf{C} -\lambda_c\mathbf{I})\mathbf{v} = \mathbf{0}$ and $\det(\mathbf{C} - \lambda_c\mathbf{I}) = \det(\mathbf{A} - \lambda\mathbf{I}) = 0$  
+$\mathbf{Cv} = \lambda_c\mathbf{v}$ $\mathbf{C}$ has an eigenvalue $\lambda_c$ with eigenvector $\mathbf{v}$  
+Therefore, $\mathbf{A} + c\mathbf{I}$ has an eigenvalue $\lambda + c$ with eigenvector $\mathbf{v}$  
+
+# Problem 11
+ a.
+```{r}
+X <- as.matrix(state.x77[, 1:5])
+head(X, 10)
+
+n <- nrow(X)
+n
+
+p <- ncol(X)
+p
+```
+
+ b.
+```{r}
+D <- diag(n) / n
+sum(diag(D))
+```
+
+ c.
+```{r}
+g <- crossprod(X, D) %*% rep(1, n)
+g
+```
+
+ d.
+```{r}
+Xc <- X - rep(1, n) %*% t(g)
+colMeans(Xc)
+```
+
+ e.
+```{r}
+V <- crossprod(X, D) %*% X - tcrossprod(g)
+V
+```
+
+ f.
+```{r}
+Ds <- diag(1 / sqrt(diag(V)))
+diag(Ds)
+```
+
+ g.
+```{r}
+Z <- Xc %*% Ds
+colMeans(Z)
+apply(Z, 2, var)
+```
+
+ h.
+```{r}
+R <- Ds %*% V %*% Ds
+R
+```
+
+ i.
+```{r}
+R <- crossprod(Z, D) %*% Z
+R
+```
+
