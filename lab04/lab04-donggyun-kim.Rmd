@@ -1,0 +1,109 @@
+---
+title: "Lab 4: Least Squares Reegression"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "2/12/2018"
+output: pdf_document
+---
+
+# Part 1: Exploratory Data Analysis (EDA)
+
+```{r}
+dat <- subset(mtcars, select = c(mpg, hp, qsec, wt))
+
+summary(dat)
+
+boxplot(dat)
+
+par(mfrow = c(1, 4))
+hist(dat$mpg)
+hist(dat$hp)
+hist(dat$qsec)
+hist(dat$wt)
+
+pairs(dat)
+
+cor(dat)
+
+prcomp(dat, scale. = TRUE)
+```
+
+
+# Part 2: OLS Outputs
+
+```{r}
+X <- as.matrix(cbind(1, dat[, 2:4]))  # explanatory variables
+y <- as.matrix(subset(dat, select = mpg))  # response variable
+coefficients <- solve(crossprod(X, X)) %*% crossprod(X, y)
+fitted_values <- X %*% coefficients
+residuals <- y - fitted_values
+RSS <- sum(residuals^2)
+sigma2 <- RSS / (nrow(X) - ncol(X))
+TSS <- sum((y - mean(y))^2)
+ESS <- sum((fitted_values - mean(y))^2)
+R2 <- ESS/TSS
+R2
+cor(y, fitted_values)^2
+coefficients
+```
+
+
+# Part 3: QR Decomposition
+$\hat\beta = {(X^tX)}^{-1}X^ty \implies X^tX\hat\beta = X^ty \implies R^tR\hat\beta = R^tQ^ty \implies R\hat\beta = Q^ty$  
+```{r}
+qr_ols <- function(M, v) {
+  QR <- qr(M)
+  Q <- qr.Q(QR)
+  R <- qr.R(QR)
+  V <- crossprod(Q, v)
+  backsolve(R, V)
+}
+
+qr_ols(X, y)
+
+qr.solve(X, y)
+```
+
+
+# Part 4
+
+```{r}
+Xc <- cbind(1, (sweep(X[, 2:4], 2, apply(X[, 2:4], 2, mean), "-")))  # mean-centered data
+
+Xc_coef <- qr_ols(Xc, y)
+Xc_coef
+
+X_colmean <- apply(X[, 2:4], 2, mean)
+coef <- Xc_coef[2:4]
+Xc_coef[1,1] <- Xc_coef[1,1] - sum(X_colmean * coef)
+Xc_coef
+qr_ols(X, y)
+
+
+Xsd <- cbind(1, (sweep(Xc[, 2:4], 2, apply(X[, 2:4], 2, sd), "/")))  # standardized data
+
+Xsd_coef <- qr_ols(Xsd, y)
+Xsd_coef
+
+X_colsd <- apply(X[, 2:4], 2, sd)
+coef <- Xsd_coef[2:4]
+Xsd_coef[2:4, 1] <- coef / X_colsd
+Xsd_coef[1, 1] <- Xsd_coef[1,1] - sum(X_colmean * Xsd_coef[2:4])
+Xsd_coef
+qr_ols(X, y)
+```
+
+
+# Part 5: Handling Categorical Variables
+
+```{r}
+gear4 <- rep(0, nrow(mtcars))
+gear4[mtcars$gear == 4] <- 1
+gear5 <- rep(0, nrow(mtcars))
+gear5[mtcars$gear == 5] <- 1
+X <- cbind(X, gear4, gear5)
+qr_ols(X, y)
+
+lm(mpg ~ hp + qsec + wt + factor(gear), data = mtcars)
+```
