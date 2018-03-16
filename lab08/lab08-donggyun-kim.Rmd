@@ -1,0 +1,142 @@
+---
+title: "Lab 8: Logistic Regression"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "3/16/2018"
+output: pdf_document
+---
+
+# The Default Data Set
+```{r}
+library(ISLR)
+library(ggplot2)
+
+ggplot(Default) +
+  geom_point(aes(x = balance, y = income, col = default), alpha = 0.5)
+
+ggplot(Default) + 
+  geom_density(aes(x = balance, fill = default, col = default), alpha = 0.5)
+
+ggplot(Default) +
+  geom_density(aes(x = income, col = default, fill = default), alpha = 0.5)
+
+default_numeric <- rep(0, nrow(Default))
+default_numeric[Default$default == "Yes"] <- 1
+Default$default_num <- default_numeric
+
+ols_reg <- lm(default_num ~ balance, Default)
+summary(ols_reg)
+
+ggplot(Default) +
+  geom_point(aes(x = balance, y = default_num, col = default)) +
+  geom_abline(slope = ols_reg$coefficients[2], 
+              intercept = ols_reg$coefficients[1],
+              col = "blue", lwd = 2)
+
+logreg_default <- glm(default ~ balance, family = binomial, data = Default)
+summary(logreg_default)
+
+new.default <- data.frame(balance = seq(100, 2000, 100))
+predict(logreg_default, new.default)
+
+logreg_default2 <- glm(default ~ student, family = binomial, data = Default)
+summary(logreg_default2)
+```
+
+# The Stock Market Smarket Data
+```{r}
+str(Smarket)
+X <- as.matrix(Smarket[, -9])
+cor(X)
+
+library(FactoMineR)
+PCA(Smarket[, -9])
+
+ggplot(Smarket) +
+  geom_point(aes(x = Year, y = Volume)) +
+  geom_smooth(aes(x = Year, y = Volume), method = "loess")
+
+logreg_smarket <- glm(Direction ~ . - Year - Today, 
+                      family = binomial, data = Smarket)
+
+summary(logreg_smarket)
+
+head(predict(logreg_smarket, type = "response"), 10)
+```
+
+# Estimation of Parameters
+```{r}
+y <- numeric(length(Smarket$Direction))
+y[Smarket$Direction == "Up"] <- 1
+X <- as.matrix(Smarket[c(paste0("Lag", 1:5), "Volume")])
+X <- cbind(1, X)
+b_old <- rep(0, ncol(X))
+N <- 100
+j <- 1
+
+while(j <= N) {
+  p <- numeric(nrow(X))
+  for (i in 1:nrow(X)) {
+    p[i] <- exp(crossprod(X[i, ], b_old)) / (1 + exp(crossprod(X[i, ], b_old)))
+  }
+  
+  W <- diag(nrow(X))
+  for (i in 1:nrow(X)) {
+    W[i, i] <- p[i] * (1 - p[i])
+  }
+  
+  z <- X %*% b_old + solve(W) %*% (y - p)
+
+  b_new <- solve(crossprod(X, W) %*% X) %*% crossprod(X, W) %*% z
+
+  if (crossprod(b_new - b_old, b_new - b_old) < 10^-20) {
+    break
+    } else {
+      b_old <- b_new
+      j <- j + 1
+    }
+}
+
+# number of iteration
+j
+
+# coefficients
+b_new
+```
+
+# Simplified Algorithm
+```{r}
+y <- numeric(length(Smarket$Direction))
+y[Smarket$Direction == "Up"] <- 1
+X <- as.matrix(Smarket[c(paste0("Lag", 1:5), "Volume")])
+X <- cbind(1, X)
+b_old <- rep(0, ncol(X))
+N <- 100
+j <- 1
+
+while (j < N) {
+  p <- numeric(nrow(X))
+  X_tilda <- matrix(0, nrow = nrow(X), ncol = ncol(X))
+  
+  for (i in 1:nrow(X)) {
+    p[i] <- exp(crossprod(X[i, ], b_old)) / (1 + exp(crossprod(X[i, ], b_old)))
+    X_tilda[i, ] <- p[i] * X[i, ]
+  }
+  
+  b_new <- b_old + solve(crossprod(X, X_tilda)) %*% crossprod(X, (y - p))
+  
+  if (crossprod(b_new - b_old, b_new - b_old) < 10^-20) {
+    break
+  } else {
+    b_old <- b_new
+    j <- j + 1
+  }
+}
+
+# number of iteration
+j
+
+# coefficients
+b_new
+```
