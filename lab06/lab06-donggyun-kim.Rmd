@@ -1,0 +1,119 @@
+---
+title: "Lab 6: Regression with Dimension Reduction Methods PCR and PLSR"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "3/16/2018"
+output: pdf_document
+---
+
+# Principal Components Regression (PCR)
+```{r, warning=FALSE}
+library(ISLR)
+library(pls)
+
+pcr_fit <- pcr(Salary ~ ., data = Hitters, scale = TRUE, validation = "none")
+
+# remove observations that have NAs in Salary
+Hitters <- na.omit(Hitters)
+
+
+X <- model.matrix(Salary ~ ., data = Hitters)
+
+X <- X[, -1]
+X <- scale(X)
+
+y <- Hitters$Salary
+
+V <- svd(X)$v
+
+Z <- X %*% V
+
+Z[1:3, ]
+pcr_fit$scores[1:3, ]
+
+z1 <- Z[, 1]
+b1 <- as.numeric(solve(crossprod(z1, z1)) %*% crossprod(z1, y))
+
+yhat1 <- b1 * z1 + mean(y)
+
+head(yhat1)
+head(pcr_fit$fitted.values[, , 1])
+
+b_pcr <- solve(crossprod(Z, Z)) %*% crossprod(Z, y)
+yhat <- Z %*% b_pcr + mean(y)
+
+head(yhat)
+head(pcr_fit$fitted.values[, , 19])
+
+V %*% b_pcr
+pcr_fit$coefficients[, , 19]
+```
+
+# Partial Least Squares Regression
+```{r}
+pls_fit <- plsr(Salary ~ ., data = Hitters, scale = TRUE, validation = "none")
+y <- Hitters$Salary
+ybar <- mean(y)
+
+
+w1 <- crossprod(X, scale(y))
+
+w1 <- w1 / as.numeric(sqrt(crossprod(w1, w1)))
+z1 <- X %*% w1
+
+p1 <- crossprod(X, z1) / as.numeric(crossprod(z1, z1))
+
+
+head(pls_fit$loading.weights[, 1])
+head(w1)
+
+head(pls_fit$scores[, 1])
+head(z1)
+
+head(pls_fit$loadings[, 1])
+head(p1)
+
+b1 <- crossprod(z1, y) / as.numeric(crossprod(z1, z1))
+yhat1 <- as.numeric(b1) * z1
+
+head(pls_fit$fitted.values[, , 1])
+head(yhat1 + mean(y))
+
+Z <- matrix(0, nrow = nrow(X), ncol = 19)
+W <- matrix(0, nrow = 19, ncol = 19)
+P <- matrix(0, nrow = 19, ncol = 19)
+b <- numeric(19)
+Y_fitted <- matrix(0, nrow = nrow(X), ncol = 19)
+
+for (i in 1:19) {
+  w <- crossprod(X, y)
+  w <- w / as.numeric(sqrt(crossprod(w, w)))
+  W[, i] <- w
+  
+  z <- X %*% w
+  Z[, i] <- z
+  
+  p <- crossprod(X, z) / as.numeric(crossprod(z, z))
+  P[, i] <- p
+  
+  X <- X - tcrossprod(Z[, i], P[, i])
+  
+  d <- crossprod(z, y) / as.numeric(crossprod(z, z))
+  b[i] <- as.numeric(d)
+  
+  Y_fitted[, i] <- as.numeric(d) * z
+  
+  y <- y - Y_fitted[, i]
+}
+
+Z[1:3, ]
+pls_fit$scores[1:3, ]
+
+W[1:3, ]
+pls_fit$loading.weights[1:3, ]
+
+P[1:3, ]
+pls_fit$loadings[1:3, ]
+```
+
