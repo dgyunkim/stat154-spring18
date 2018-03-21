@@ -1,0 +1,214 @@
+---
+title: "Problem Set 4: Biased Methods and Regularization"
+author:
+- "Donggyun Kim"
+- "27008257"
+date: "3/21/2018"
+output: html_document
+---
+
+# 1) Properties of PLS Regression
+## a) 
+$||\mathbf{w}_h|| = \mathbf{w}_h^t\mathbf{w}_h =1.$  
+
+$\mathbf{p}_h = \frac{\mathbf{X}^t_{h-1}\mathbf{z}_h}{\mathbf{z}^{t}_h\mathbf{z}_h} = \frac{\mathbf{X}^t_{h-1}\mathbf{X}_{h-1}\mathbf{w}_h}{\mathbf{w}_h^t\mathbf{X}_{h-1}^t\mathbf{X}_{h-1}\mathbf{w}_h}.$  
+
+$\mathbf{w}_h^t\mathbf{p}_h = \frac{\mathbf{w}_h^t\mathbf{X}^t_{h-1}\mathbf{X}_{h-1}\mathbf{w}_h}{\mathbf{w}_h^t\mathbf{X}_{h-1}^t\mathbf{X}_{h-1}\mathbf{w}_h} = 1.$
+
+## b) 
+$\mathbf{X}_h = \mathbf{X}_{h-1} - \mathbf{z}_h\mathbf{p}_h^t = \mathbf{X}_{h-1} - \mathbf{X}_{h-1}\mathbf{w}_h\mathbf{p}_h^t.$  
+
+$\mathbf{X}_h\mathbf{w}_h = \mathbf{X}_{h-1}\mathbf{w}_h - \mathbf{X}_{h-1}\mathbf{w}_h\mathbf{p}_h^t\mathbf{w}_h.$  
+
+$\mathbf{w}_h^t\mathbf{X}_h^t = (\mathbf{X}_h\mathbf{w}_h)^t = \mathbf{w}_h^t\mathbf{X}_{h-1}^t - \mathbf{w}_h^t\mathbf{p}_h\mathbf{w}_h^t \mathbf{X}_{h-1}^t = \mathbf{w}_h^t\mathbf{X}_{h-1}^t - \mathbf{w}_h^t \mathbf{X}_{h-1}^t = 0.$    
+
+
+# 2) Bias of Regression Coefficients in PCR
+## a)  
+$\hat\beta_Z^{(k)} = V_k\hat{\beta}_{PCR}^{(k)}.$
+
+$\mathbb{E}[V_k\hat{\beta}_{PCR}^{(k)}] = V_k(Z_k^tZ_k)^{-1}Z_k^t\mathbb{E}[y] = V_k(\Lambda_k)^{-1}(XV_k)^t(X\beta) = V_k(\Lambda_k)^{-1}V_k^tX^tX\beta.$  
+
+$\mathbb{E}[V_k\hat{\beta}_{PCR}^{(k)} - \beta] = \mathbb{E}[V_k\hat{\beta}_{PCR}^{(k)}] - \beta = V_k(\Lambda_k)^{-1}V_k^tX^tX\beta - \beta = (V_k(\Lambda_k)^{-1}V_k^tX^tX - I)\beta.$  
+
+## b)  
+$\hat\beta_Z^{(p)} = V_p\hat{\beta}_{PCR}^{(p)}.$  
+
+$\mathbb{E}[V_p\hat{\beta}_{PCR}^{(p)}] = V_p(Z_p^tZ_p)^{-1}Z_p^t\mathbb{E}[y] = V_p((XV_p)^tXV_p)^{-1}(XV_p)^t(X\beta) = V_p(V_p^tX^tXV_p)^{-1}V_p^tX^tX\beta = V_pV_p^t(X^tX)^{-1}V_pV_p^tX^tX\beta = \beta.$  
+
+$\mathbb{E}[V_p\hat{\beta}_{PCR}^{(p)} - \beta] = 0.$  
+
+
+# 3) Bias of Ridge Regression Coefficients
+$X = UDV^t.$  
+
+$\hat\beta_r = (X^tX + kI)^{-1}X^ty = ((UDV^t)^tUDV^t + kI)^{-1}(UDV^t)^ty = (VD^2V^t+kI)^{-1}VDU^ty.$  
+
+$\mathbb{E}[\hat\beta_r] = (VD^2V^t+kI)^{-1}VDU^tX\beta = (VD^2V^t+kI)^{-1}VDU^tUDV^t\beta = (VD^2V^t+kI)^{-1}VD^2V^t\beta.$  
+
+$D^2 = \Lambda.$  
+
+$\mathbb{E}[\hat\beta_r - \beta] = \mathbb{E}[\hat\beta_r] - \beta = (V\Lambda V^t+kI)^{-1}V\Lambda V^t\beta - \beta = ((V\Lambda V^t+kI)^{-1}V\Lambda V^t - I)\beta.$  
+
+
+
+# 4) Models for Solubility Data
+## 4.1) PCR
+```{r, message=FALSE, warning=FALSE}
+library(AppliedPredictiveModeling)
+library(caret)
+library(pls)
+library(elasticnet)
+library(ggplot2)
+
+data(solubility)
+
+# 10-fold cross-validation
+ctrl <- trainControl(method = "cv", number = 10)
+
+set.seed(1991)
+pcr_fit <- train(x = solTrainXtrans, y = solTrainY,
+                 method = "pcr",
+                 tuneLength = 40,
+                 trControl = ctrl,
+                 preProcess = c("center", "scale"))
+pcr_fit
+
+# plot the RMSEs against the number of PCs
+plot(pcr_fit)
+
+# the number of PCs that gives the minimum RMSE value
+pcr_fit$bestTune
+
+# Make a plot of the regression coefficient paths
+pcr_coef <- pcr_fit$finalModel$coefficients
+n <- nrow(pcr_coef)
+p <- as.numeric(pcr_fit$bestTune)
+variable <- rep(rownames(pcr_coef), p)
+PC <- rep(1:p, each = n)
+pcr_coef <- as.matrix(pcr_coef)
+dat <- data.frame(variable,
+                  coefficient = pcr_coef,
+                  PC,
+                  stringsAsFactors = FALSE)
+
+ggplot(dat, aes(x = PC, y = coefficient, col = variable)) +
+  geom_step() +
+  xlab("# Component") +
+  ylab("Coefficient") +
+  theme(legend.position = "none")
+```
+
+
+## 4.2) PLSR
+```{r}
+set.seed(1991)
+pls_fit <- train(x = solTrainXtrans, y = solTrainY,
+                 method = "pls",
+                 tuneLength = 30,
+                 trControl = ctrl,
+                 preProcess = c("center", "scale"))
+
+pls_fit
+
+# plot the RMSEs against the number of PLS components
+plot(pls_fit)
+
+# the number of PLS components that gives the minimum RMSE value
+pls_fit$bestTune
+
+# make a plot of the regression coefficient paths
+pls_coef <- pls_fit$finalModel$coefficients
+n <- nrow(pls_coef)
+p <- as.numeric(pls_fit$bestTune)
+variable <- rep(rownames(pls_coef), p)
+comp <- rep(1:p, each = n)
+pls_coef <- as.matrix(pls_coef)
+
+dat <- data.frame(variable,
+                  coefficient = pls_coef,
+                  comp)
+                  
+ggplot(dat, aes(x = comp, y = coefficient, col = variable)) +
+  geom_step() +
+  xlab("# Component") +
+  ylab("Coefficient") +
+  theme(legend.position = "none")
+```
+
+## 4.3) Ridge Regression
+```{r}
+ridgeGrid <- data.frame(.lambda = seq(0, .1, length = 15))
+set.seed(1991)
+ridge_fit <- train(x = solTrainXtrans, y = solTrainY,
+                 method = "ridge",
+                 tuneGrid = ridgeGrid,
+                 trControl = ctrl,
+                 preProcess = c("center", "scale"))
+
+ridge_fit
+
+# plot the RMSEs against the values of the tuning parameter lambda
+plot(ridge_fit)
+
+# the value of lambda that gives the minimum RMSE value
+ridge_fit$bestTune
+
+# make a plot of the regression coefficient paths
+plot(ridge_fit$finalModel, xvar = "penalty", use.color = TRUE)
+```
+
+## 4.4) Lasso
+```{r}
+enetGrid <- expand.grid(.lambda = c(0, 0.01, .1),
+                        .fraction = seq(.05, 1, length = 20))
+set.seed(1991)
+lasso_fit <- train(x = solTrainXtrans, y = solTrainY,
+                   method = "enet",
+                   tuneGrid = enetGrid,
+                   trControl = ctrl,
+                   preProcess = c("center", "scale"))
+
+lasso_fit
+
+# plot the RMSEs against the values of the tuning parameter lambda
+plot(lasso_fit)
+
+# the value of lambda that gives the minimum RMSE value
+lasso_fit$bestTune
+
+# make a plot of the regression coefficient paths
+plot(lasso_fit$finalModel, xvar = "penalty", use.color = TRUE)
+```
+
+## 4.5) Model Selection
+```{r}
+# compute test-MSEs for PCR
+y_pcr <- predict(pcr_fit, solTestXtrans)
+MSE_pcr <- mean((solTestY - y_pcr)^2)
+MSE_pcr
+
+# compute test-MSEs for PLSR
+y_pls <- predict(pls_fit, solTestXtrans)
+MSE_pls <- mean((solTestY - y_pls)^2)
+MSE_pls
+
+# compute test-MSEs for Ridge Regression
+y_ridge <- predict(ridge_fit, solTestXtrans)
+MSE_ridge <- mean((solTestY - y_ridge)^2)
+MSE_ridge
+
+# compute test-MSEs for PCR
+y_lasso <- predict(lasso_fit, solTestXtrans)
+MSE_lasso <- mean((solTestY - y_lasso)^2)
+MSE_lasso
+
+# graph the test-MSEs
+MSEs <- rbind(MSE_pcr, MSE_pls, MSE_ridge, MSE_lasso)
+plot(MSEs, main = "Test MSEs", xlab = "Model", type = "b", xaxt = "n")
+axis(1, at = 1:4, labels = rownames(MSEs))
+
+
+# the smallest test-MSE
+MSEs[which.min(MSEs), 1]
+```
