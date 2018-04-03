@@ -1,0 +1,249 @@
+---
+title: "Lab 10: Canonical Discriminant Analysis"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "4/2/2018"
+output: html_document
+---
+
+# 1) Sum-of-Squares Dispersion Functions
+
+```{r}
+tss <- function(x) {
+  sum((x - mean(x))^2)
+}
+
+tss(iris$Sepal.Length)
+
+bss <- function(x, y) {
+  if (length(x) != length(y)) {
+    stop("length of x and y must be same!")
+  }
+  
+  y <- factor(y)
+  K <- levels(y)
+  bss <- numeric(length(K))
+  for (i in 1:length(K)) {
+    index <- y == K[i]
+    n <- sum(index)
+    bss[i] <- n * (mean(x[index]) - mean(x))^2
+  }
+  sum(bss)
+}
+
+bss(iris$Sepal.Length, iris$Species)
+
+wss <- function(x, y) {
+  if (length(x) != length(y)) {
+    stop("length of x and y must be same!")
+  }
+  
+  y <- factor(y)
+  K <- levels(y)
+  wss <- numeric(length(K))
+  for (i in 1:length(K)) {
+    index <- y == K[i]
+    wss[i] <- sum((x[index] - mean(x[index]))^2)
+  }
+  
+  sum(wss)
+}
+
+wss(iris$Sepal.Length, iris$Species)
+```
+
+# 2) Sum-of-Squares Ratio Functions
+
+```{r}
+cor_ratio <- function(x, y) {
+  bss(x, y) / tss(x)
+}
+
+cor_ratio(iris$Sepal.Length, iris$Species)
+
+F_ratio <- function(x, y) {
+  y <- factor(y)
+  K <- levels(y)
+  
+  bss(x, y) / wss(x, y) * (length(x) - length(K)) / (length(K) - 1) 
+}
+
+F_ratio(iris$Sepal.Length, iris$Species)
+```
+
+# 3) Discriminant Power of Predictors
+
+Correlation ratio
+```{r}
+y <- iris$Species
+eta_square <- numeric(4)
+
+for (i in 1:4) {
+  x <- iris[, i]
+  eta_square[i] <- cor_ratio(x, y)
+}
+
+dat <- data.frame(
+  predictors = names(iris)[-5],
+  cor_ratio = eta_square,
+  rank = rank(eta_square)
+)
+
+library(ggplot2)
+ggplot(dat, aes(x = predictors, y = cor_ratio)) +
+  geom_bar(stat = "identity")
+```
+
+F-ratio
+```{r}
+y <- iris$Species
+F_value <- numeric(4)
+
+for (i in 1:4) {
+  x <- iris[, i]
+  F_value[i] <- F_ratio(x, y)
+}
+
+dat <- data.frame(
+  predictors = names(iris)[-5],
+  cor_ratio = F_value,
+  rank = rank(eta_square)
+)
+
+ggplot(dat, aes(x = predictors, y = F_value)) +
+  geom_bar(stat = "identity")
+```
+
+# 4) Variance functions
+
+```{r}
+total_variance <- function(X) {
+  p <- dim(X)[2]
+  n <- dim(X)[1]
+  mat <- matrix(0, nrow = p, ncol = p)
+  
+  for (i in 1:p) {
+    for (j in 1:p) {
+      mat[i, j] <- t(X[, i] - mean(X[, i])) %*% (X[, j] - mean(X[, j]))
+    }
+  }
+  
+  mat / (n - 1)
+}
+
+total_variance(iris[, 1:4])
+
+var(iris[, 1:4])
+
+between_variance <- function(X, y) {
+  p <- dim(X)[2]
+  n <- dim(X)[1]
+  y <- factor(y)
+  K <- levels(y)
+  arr <- array(0, c(p, p, length(K)))
+  
+  for (k in 1:length(K)) {
+    for (i in 1:p) {
+      for (j in 1:p) {
+        index <- y == K[k]
+        arr[i, j, k] <- (mean(X[index, i]) - mean(X[, i])) * 
+          (mean(X[index, j]) - mean(X[, j])) * sum(index)
+      }
+    }
+  }
+  
+  mat <- matrix(0, nrow = dim(arr)[1], ncol = dim(arr)[2])
+  
+  for (k in 1:dim(arr)[3]) {
+    mat <- mat + arr[, , k]
+  }
+  
+  mat / (n - 1)
+}
+
+between_variance(iris[, 1:4], iris$Species)
+
+within_variance <- function(X, y) {
+  n <- dim(X)[1]
+  p <- dim(X)[2]
+  y <- factor(y)
+  K <- levels(y)
+  arr <- array(0, c(p, p, length(K)))
+  
+  for (k in 1:length(K)) {
+    for (i in 1:p) {
+      for (j in 1:p) {
+        index <- y == K[k]
+        arr[i, j, k] <- t(X[index, i] - mean(X[index, i])) %*% (X[index, j] - mean(X[index, j]))
+      }
+    }
+  }
+  
+  mat <- matrix(0, nrow = p, ncol = p)
+  
+  for (k in 1:dim(arr)[3]) {
+    mat <- mat + arr[, , k]
+  }
+  
+  mat / (n - 1)
+}
+
+within_variance(iris[, 1:4], iris$Species)
+
+Viris <- total_variance(iris[, 1:4])
+Viris
+
+Biris <- between_variance(iris[ ,1:4], iris$Species)
+Wiris <- within_variance(iris[ ,1:4], iris$Species)
+Biris + Wiris
+```
+
+# 5) Canonical Discriminant Analysis (CDA)
+
+```{r}
+p <- dim(iris)[2] - 1
+n <- dim(iris)[1]
+y <- iris$Species
+K <- levels(y)
+C <- matrix(0, nrow = p, ncol = length(K))
+
+for (j in 1:p) {
+  for (k in 1:length(K)) {
+    index <- y == K[k]
+    C[j, k] = sqrt(sum(index) / (n - 1)) * (mean(iris[index, j]) - mean(iris[, j]))
+  }
+}
+
+# compare to Biris
+C %*% t(C)
+Biris
+
+EVD <- eigen(t(C) %*% solve(Wiris) %*% C)
+
+w <- EVD$vectors
+
+u <- solve(Wiris) %*% C %*% w
+u
+
+X <- as.matrix(iris[, 1:4])
+Z <- X %*% u
+
+dat <- data.frame(Z)
+names(dat) <- paste0("Z", 1:3)
+dat$Species <- iris$Species
+
+ggplot(dat) +
+  geom_point(aes(x = Z1, y = Z2, col = Species))
+
+
+# PCA
+pca <- prcomp(iris[, 1:4])
+PCs <- pca$x
+
+dat <- data.frame(PCs)
+dat$Species <- iris$Species
+
+ggplot(dat) +
+  geom_point(aes(x = PC1, y = PC2, col = Species))
+```
