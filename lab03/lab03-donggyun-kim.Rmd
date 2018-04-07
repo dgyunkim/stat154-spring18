@@ -1,0 +1,164 @@
+---
+title: "Lab 03: Principal Components Analysis (PCA)"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "2/9/2018"
+output: html_document
+---
+
+# Dataset NBA Teams
+
+```{r}
+dataset <- read.csv('data/nba-teams-2017.csv', stringsAsFactors = FALSE)
+```
+
+Create a new data frame
+```{r}
+dat <- subset(dataset, select = c(wins, losses, points, field_goals, points3, 
+                                  free_throws, off_rebounds, def_rebounds, 
+                                  assists, steals, blocks, personal_fouls))
+```
+
+```{r}
+summary(dat)
+
+boxplot(dat, las = 2)
+
+par(mfrow = c(1, 3))
+hist(dat$wins)
+hist(dat$losses)
+hist(dat$points3)
+
+par(mfrow = c(1, 3))
+plot(density(dat$points))
+plot(density(dat$free_throws))
+plot(density(dat$off_rebounds))
+
+cor(dat)
+
+pairs(dat)
+```
+
+# PCA with prcomp()
+```{r}
+pca_prcomp <- prcomp(dat, scale. = TRUE)
+
+names(pca_prcomp)
+
+eigenvalues <- pca_prcomp$sdev^2
+
+loadings <- pca_prcomp$rotation
+
+scores <- pca_prcomp$x
+
+eigenvalues
+eigenvalues[eigenvalues < 10^-5]
+```
+
+# PCA with princomp()
+```{r}
+pca_princomp <- princomp(dat, cor = TRUE)
+
+names(pca_princomp)
+
+pca_princomp$sdev^2
+eigenvalues
+
+pca_princomp$loadings
+loadings
+
+pca_princomp$scores
+scores
+```
+
+
+# Challenge
+```{r}
+pca_princomp$loadings
+class(pca_princomp$loadings)
+pca_princomp$loadings[]
+class(pca_princomp$loadings[])
+```
+
+# Eigenvalues and Proportion of Variance Explained
+```{r}
+eigenvalue <- round(eigenvalues, 4)
+percentage <- round(prop.table(eigenvalues) * 100, 4)
+cumulative.percentage <- cumsum(percentage)
+cbind(eigenvalue, percentage, cumulative.percentage)
+
+barplot(eigenvalues, names = paste("PC", 1:12), las = 1, 
+        main = "Bar-chart of eigenvalues")
+```
+
+# Variable Loadings and Correlations with PCs
+```{r}
+cormat <- cor(scores, dat)
+PC1 <- cormat[1, ]
+PC1
+PC2 <- cormat[2, ]
+PC2
+
+plot(PC1, PC2, xlim = c(-1, 1), ylim = c(-1, 1))
+abline(v = 0, h = 0, col = "lightgray")
+arrows(0, 0, PC1, PC2, segment = TRUE)
+text(PC1, PC2, names(PC1))
+```
+
+# Visualizing observations
+```{r}
+PC1 <- scores[, 1]
+PC2 <- scores[, 2]
+PC3 <- scores[, 3]
+
+plot(PC1, PC2, col = "gray", pch = 19)
+abline(h = 0, v = 0, col = "lightgray")
+text(PC1, PC2, dataset$team, adj = 0.5, cex = 0.5, col = "black")
+
+plot(PC1, PC3, col = "gray", pch = 19)
+abline(h = 0, v = 0, col = "lightgray")
+text(PC1, PC3, dataset$wins, adj = 0.5, cex = 0.5, col = "black")
+
+plot(PC2, PC3, col = "gray", pch = 19)
+abline(h = 0, v = 0, col = "lightgray")
+text(PC2, PC3, dataset$free_throws, adj = 0.5, cex = 0.5, col = "black")
+```
+
+```{r}
+library(plotly)
+
+scores_df <- cbind.data.frame(
+  scores,
+  team = dataset$team,
+  stringsAsFactors = FALSE
+)
+
+plot_ly(data = scores_df, x = ~PC1, y = ~PC2,
+type = 'scatter',
+mode = 'markers',
+text = ~team,
+marker = list(size = 10))
+
+plot_ly(data = scores_df, x = ~PC1, y = ~PC2, z = ~PC3,
+type = 'scatter3d',
+mode = 'markers',
+text = ~team)
+```
+
+# Biplot: Another visual display
+```{r}
+biplot(pca_prcomp, scale = 0)
+
+biplot(pca_prcomp, scale = 1)
+
+biplot(pca_prcomp, scale = 0.3)
+
+biplot(pca_prcomp, scale = 0.5)
+
+biplot(pca_prcomp, scale = 0.7)
+```
+
+
+
+
