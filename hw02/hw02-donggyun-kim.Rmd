@@ -1,0 +1,198 @@
+---
+title: "Problem Set 2: PCA"
+author:
+- "Donggyun Kim"
+- "27008257"
+- "Lab 102"
+date: "2/16/2018"
+output: html_document
+---
+
+# Exploratory Phase
+```{r}
+dat <- read.csv("data/decathlon.csv", stringsAsFactors = FALSE)
+stars(dat[, -1], full = TRUE, scale = TRUE, labels = as.character(dat$athlete), 
+      key.loc = c(-2, 15), key.labels = colnames(dat)[-1], cex = 0.5)
+
+pairs(dat[, c(-1, -12:-14)])
+
+summary(dat)
+
+boxplot(dat[, c(-1, -12:-14)], las = 2)
+```
+
+# 1) Calculation of primary PCA outputs
+```{r}
+dat_act <- dat[1:28, 2:11]  # active individuals and variables
+
+avg <- apply(dat_act, 2, mean)  # column mean of active data
+scale <- apply(dat_act, 2, sd)  # column sd of active data
+
+Xc <- sweep(dat_act, 2, avg, "-")  # mean-centered data
+Xsd <- sweep(Xc, 2, scale, "/")  # standardized data
+
+SVD <- svd(Xsd)
+
+loadings <- SVD$v
+rownames(loadings) <- names(Xsd)
+colnames(loadings) <- paste0("v", 1:10)
+
+loadings[, 1:4]  # first four loadings
+
+PCs <- as.matrix(Xsd) %*% loadings
+rownames(PCs) <- dat$athlete[1:28]
+colnames(PCs) <- paste0("PC", 1:10)
+
+PCs[, 1:4]  # first four PCs
+
+eigenvalues <- SVD$d^2 / (nrow(Xsd) - 1)
+eigenvalues
+sum(eigenvalues)
+```
+
+# 2) Choosing the number of dimensions to retain/examine
+```{r}
+eigenvalue <- round(eigenvalues, 4)
+percentage <- round(prop.table(eigenvalues) * 100, 4)
+cumulative.percentage <- cumsum(percentage)
+# a summary table of the eigenvalues
+cbind(eigenvalue, percentage, cumulative.percentage)
+```
+If we use first four PCs to interpret the data, they explain about 78% of the variance in the data.  
+
+```{r}
+# a scree-plot of the eigenvalues
+plot(percentage, pch = 1, las = 1, xlab = "Principal Component", 
+     ylab = "Percentage of Variance", lty = 1,
+     main = "Scree Plot of Eigenvalues")
+lines(percentage)
+axis(1, at = 1:10)
+```
+
+The first principal component(or eigenvalue) explains about 35% of the variance in the data, the second one explains about 20% of the variance in the data, and the third one explains about 13% of the variance in the data. I would like to use first three principal components that explain about 70% of the variance in the data because that might be enough to interpret the data set. If not, add one more component. I will repeat the same process until I will get what I want.  
+
+# 3) Studying the cloud of individuals
+```{r}
+dat_sup <- dat[29:41, 2:11]  # supplementary individuals
+
+# standardize supplementary data with mean and sd of active data
+Xc_sup <- sweep(dat_sup, 2, avg, "-")  # mean centered data
+Xsd_sup <- sweep(Xc_sup, 2, scale, "/")  # standardized data
+
+PCs_sup <- as.matrix(Xsd_sup) %*% loadings
+rownames(PCs_sup) <- dat$athlete[29:41]
+colnames(PCs_sup) <- paste0("PC", 1:10)
+
+PCs_total <- rbind(PCs, PCs_sup)  # combine active and supplementary PCs
+
+
+PC1 <- PCs_total[, 1]
+PC2 <- PCs_total[, 2]
+PC1_act <- PCs[, 1]
+PC2_act <- PCs[, 2]
+PC1_sup <- PCs_sup[, 1]
+PC2_sup <- PCs_sup[, 2]
+
+# a scatter plot of the athletes on the 1st and 2nd PCs
+plot(PC1, PC2, col = factor(dat$competition), 
+     pch = c(4,1)[factor(dat$competition)])
+segments(0, 0, PC1, PC2, col = factor(dat$competition), lty = 2)
+text(PC1_act, PC2_act, labels = rownames(PCs), pos = 4, 
+     font = 1, cex = 0.7)
+text(PC1_sup, PC2_sup, labels = rownames(PCs_sup), pos = 4, 
+     font = 3, cex = 0.5)
+legend("topright", legend = unique(factor(dat$competition)), 
+       col = unique(factor(dat$competition)), pch = c(1,4))
+abline(v = 0, h = 0, col = "lightgray")
+axis(1, at = -4:4)
+```
+
+This graph shows how related for each individual to the first and second principal component. Most of the individuals seem to be related to the first principal component. Casarsa(individual) is highly related to the both components. Schoenbeck(individual) is hardly related to the both components.  
+
+```{r}
+cos2 <- matrix(0, nrow = nrow(dat_act), ncol = ncol(dat_act))
+
+for (i in 1:nrow(PCs)) {
+  for (j in 1:ncol(PCs)) {
+    cos2[i, j] <- (PCs[i, j])^2 / sum(Xsd[i, ]^2)
+  }
+}
+
+rownames(cos2) <- rownames(PCs)
+colnames(cos2) <- colnames(PCs)
+cos2[, 1:4]
+
+best <- which.max(cos2[, 1] + cos2[, 2])
+worst <- which.min(cos2[, 1] + cos2[, 2])
+
+names(best)
+cos2[best, 1:2]
+
+names(worst)
+cos2[worst, 1:2]
+```
+
+```{r}
+ctr <- matrix(0, nrow = nrow(dat_act), ncol = ncol(dat_act))
+
+for (i in 1:nrow(ctr)) {
+  for (j in 1:ncol(ctr)) {
+    ctr[i, j] <- 100 / (nrow(ctr) - 1) * (PCs[i, j])^2 / eigenvalues[j]
+  }
+}
+
+rownames(ctr) <- rownames(PCs)
+colnames(ctr) <- colnames(PCs)
+ctr[, 1:4]
+
+best <- which.max(ctr[, 1] + ctr[, 2])
+worst <- which.min(ctr[, 1] + ctr[, 2])
+
+names(best)
+ctr[best, 1:2]
+
+names(worst)
+ctr[worst, 1:2]
+```
+
+# 4) Studying the cloud of variables
+```{r}
+# calculate the correlation of all quantitative variables with PCs
+X <- dat[1:28, c(-1, -14)]
+PC_cor <- cor(X, PCs)
+PC_cor[, 1:4]
+
+circle <- function(center = c(0, 0), npoints = 100) {
+r = 1
+tt = seq(0, 2 * pi, length = npoints)
+xx = center[1] + r * cos(tt)
+yy = center[2] + r * sin(tt)
+data.frame(x = xx, y = yy)
+}
+corcir <- circle(c(0, 0), npoints = 100)
+
+# circle of correlations plot
+par(pty="s")
+plot(PC_cor[, 1], PC_cor[, 2], xlim = c(-1, 1), ylim = c(-1, 1),
+     xlab = "Axis 1", ylab = "Axis 2", type = "n", las = 1)
+lines(corcir)
+abline(h = 0, v = 0, col = "lightgray")
+text(PC_cor[1:10, 1], PC_cor[1:10, 2], rownames(PC_cor)[1:10], 
+     col = "blue", cex = 0.7)
+text(PC_cor[11:12, 1], PC_cor[11:12, 2], rownames(PC_cor)[11:12], 
+     col = "red", cex = 0.7)
+arrows(x0 = 0, y0 = 0, x1 = PC_cor[1:10, 1], y1 = PC_cor[1:10, 2], 
+       length = 0.1, col = "blue")
+arrows(x0 = 0, y0 = 0, x1 = PC_cor[11:12, 1], y1 = PC_cor[11:12, 2], 
+       length = 0.1, col = "red")
+par(xpd = TRUE)
+legend(1.2, 1, legend = c("active", "supplementary"), 
+       col = c("blue", "red"), cex = 0.8, lwd = 1)
+```
+
+This plot shows that almost all of information about supplementary variables is represented by the first axis. Some of active variables seem to be correlated to each other. For example, "high_jump", "shot_put", "discus", and "javeline" have negative values in both axes. Only two variables, "long_jump" and "ple_vault", have positive values in the second axis.  
+
+# 5) Conclusions
+By Principal Component Analysis, we are able to interpret relationship among variables and resemblance among individuals. We first figure out how many independent variables the data has and decompose the data to find loadings, which is a matrix of eigenvectors and useful to find Principal Components(PCs). We want to maximize PCs so we can preserve information as much as possible. Eigenvalues of correlation data matrix represents the variance of PCs. Proportion of eigenvalues indicates how much information of the original data it contains. We choose first three PCs to interpret the data, which also means we can handle 70% of the original data with only three PCs. For easier interpreting purpose, we make plots in terms of PCs, a correlation matrix between PCs and variables, and plot the correlation matrix in two dimensional space.  
+
+
