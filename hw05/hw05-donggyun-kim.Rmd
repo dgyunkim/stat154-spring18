@@ -1,0 +1,341 @@
+---
+title: "Problem Set 5: Discriminant Analysis"
+author:
+- "Donggyun Kim"
+- "27008257"
+date: "4/12/2018"
+output: html_document
+---
+
+
+# 1) LDA
+
+## 1.1) Function lda_fit()
+
+```{r}
+lda_fit <- function(X, y) {
+  X <- as.matrix(X)
+  y <- factor(y)
+  clss <- levels(y)
+  K <- length(clss)
+  N <- dim(X)[1]
+  P <- dim(X)[2]
+  
+  n <- numeric(K)
+  for (k in 1:K) {
+    n[k] <- sum(y == clss[k])
+  }
+  
+  pi_hat <- numeric(K)
+  for (k in 1:K) {
+    pi_hat[k] <- n[k] / N
+  }
+  
+  mu_hat <- matrix(0, nrow = K, ncol = P)
+  for (k in 1:K) {
+    index <- y == clss[k]
+    for (p in 1:P) {
+      mu_hat[k, p] <- mean(X[index, p])
+    }
+  }
+  
+  arr <- array(0, c(P, P, K))
+  for (k in 1:K) {
+    index <- y == clss[k]
+    for (i in 1:P) {
+      for (j in 1:P) {
+        arr[i, j, k] <- t(X[index, i] - mu_hat[k, i]) %*% (X[index, j] - mu_hat[k, j])
+      }
+    }
+  }
+  sigma_hat <- matrix(0, nrow = P, ncol = P)
+  for (k in 1:K) {
+    sigma_hat <- sigma_hat + arr[, , k]
+  }
+  sigma_hat <- sigma_hat / (N - K)
+  
+  list(pi_hat = pi_hat,
+       mu_hat = mu_hat,
+       sigma_hat = sigma_hat)
+}
+```
+
+
+## 1.2) Function lda_predict()
+
+```{r}
+lda_predict <- function(fit, newdata) {
+  pi_hat <- fit$pi_hat
+  mu_hat <- fit$mu_hat
+  sigma_hat <- fit$sigma_hat
+  K <- length(pi_hat)
+  
+  X <- as.matrix(newdata)
+  N <- dim(X)[1]
+  P <- dim(X)[2]
+  class <- numeric(N)
+  
+  delta_hat <- numeric(K)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      delta_hat[k] <- log(pi_hat[k]) - t(mu_hat[k, ]) %*% solve(sigma_hat) %*%
+        mu_hat[k, ] / 2 + t(mu_hat[k, ]) %*% solve(sigma_hat) %*% X[n, ]
+    }
+    class[n] <- which.max(delta_hat)
+  }
+  
+  fx <- matrix(0, nrow = N, ncol = K)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      fx[n, k] <- 1 / ((2 * pi)^(P/2) * det(sigma_hat)^(1/2)) *
+        exp(-t(X[n, ] - mu_hat[k, ]) %*% solve(sigma_hat) %*% (X[n, ] - mu_hat[k, ]))
+    }
+  }
+  
+  denominator <- numeric(N)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      denominator[n] <- denominator[n] + pi_hat[k] * fx[n, k]
+    }
+  }
+  
+  posterior <- matrix(0, nrow = N, ncol = K)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      posterior[n, k] <- pi_hat[k] * fx[n, k] / denominator[n]
+    }
+  }
+  
+  list(class = class,
+       posterior = posterior)
+}
+```
+
+
+## 1.3) Classification with LDA
+
+```{r}
+training <- c(1:47, 51:97, 101:146)
+testing <- c(48:50, 98:100, 147:150)
+fit <- lda_fit(iris[training, 1:4], iris$Species[training])
+fit
+lda_predict(fit, iris[testing, 1:4])
+```
+
+# 2) QDA
+
+## 2.1) Function qda_fit()
+
+```{r}
+qda_fit <- function(X, y) {
+  X <- as.matrix(X)
+  N <- dim(X)[1]
+  P <- dim(X)[2]
+  y <- factor(y)
+  clss <- levels(y)
+  K <- length(clss)
+  
+  n <- numeric(K)
+  for (k in 1:K) {
+    n[k] <- sum(y == clss[k])
+  }
+  
+  pi_hat <- numeric(K)
+  for (k in 1:K) {
+    pi_hat[k] <- n[k] / N
+  }
+  
+  mu_hat <- matrix(0, nrow = K, ncol = P)
+  for (k in 1:K) {
+    for (p in 1:P) {
+      mu_hat[k, p] <- mean(X[y == clss[k], p])
+    }
+  }
+  
+  sigma_hat <- array(0, c(P, P, K))
+  for (k in 1:K) {
+    for (i in 1:P) {
+      for (j in 1:P) {
+        sigma_hat[i, j, k] <- t(X[y == clss[k], i] - mu_hat[k, i]) %*% 
+          (X[y == clss[k], j] - mu_hat[k, j]) / (n[k] - 1)
+      }
+    }
+  }
+  
+  list(pi_hat = pi_hat,
+       mu_hat = mu_hat,
+       sigma_hat = sigma_hat)
+}
+```
+
+
+## 2.2) Function qda_predict()
+
+```{r}
+qda_predict <- function(fit, newdata) {
+  pi_hat <- fit$pi_hat
+  mu_hat <- fit$mu_hat
+  sigma_hat <- fit$sigma_hat
+  X <- as.matrix(newdata)
+  N <- dim(X)[1]
+  P <- dim(X)[2]
+  K <- length(pi_hat)
+  
+  class <- numeric(N)
+  delta_hat <- numeric(K)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      delta_hat[k] <- -t(X[n, ]) %*% solve(sigma_hat[, , k]) %*% X[n, ] / 2 +
+        t(X[n, ]) %*% solve(sigma_hat[, , k]) %*% mu_hat[k, ] -
+        t(mu_hat[k, ]) %*% solve(sigma_hat[, , k]) %*% mu_hat[k, ] / 2 -
+        log(det(sigma_hat[, , k])) / 2 + log(pi_hat[k])
+    }
+    class[n] <- which.max(delta_hat)
+  }
+  
+  fx <- matrix(0, nrow = N, ncol = K)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      fx[n, k] <- 1 / ((2 * pi)^(P / 2) * det(sigma_hat[, , k])^(1/2)) * 
+        exp(-t(X[n, ] - mu_hat[k, ]) %*% solve(sigma_hat[, , k]) %*%
+              (X[n, ] - mu_hat[k, ]))
+    }
+  }
+  
+  denominator <- numeric(N)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      denominator[n] <- denominator[n] + pi_hat[k] * fx[n, k]
+    }
+  }
+  
+  posterior <- matrix(0, nrow = N, ncol = K)
+  for (n in 1:N) {
+    for (k in 1:K) {
+      posterior[n, k] <- pi_hat[k] * fx[n, k] / denominator[n]
+    }
+  }
+  
+  list(class = class,
+       posterior = posterior)
+}
+```
+
+
+## 2.3) Classification with QDA
+
+```{r}
+training <- c(1:47, 51:97, 101:146)
+testing <- c(48:50, 98:100, 147:150)
+fit <- qda_fit(iris[training, 1:4], iris$Species[training])
+fit
+qda_predict(fit, iris[testing, 1:4])
+```
+
+
+# 3) k-Nearest Neighbors
+
+## 3.1) Function knn_predict()
+
+```{r}
+knn_predict <- function(X_train, X_test, y_train, k) {
+  train <- as.matrix(X_train)
+  rownames(train) <- 1:nrow(train)
+  test <- as.matrix(X_test)
+  y_train <- factor(y_train)
+  I <- nrow(test)
+  y_test <- numeric(I)
+  for (i in 1:I) {
+    X <- sweep(train, 2, test[i, ], "-")
+    dst <- apply(X, 1, function(x) sum(x^2))
+    index <- as.numeric(names(sort(dst)[1:k]))
+    factors <- y_train[index]
+    y_test[i] <- names(which.max(table(factors)))
+  }
+  factor(y_test)
+}
+```
+
+
+## 3.2) Classification with k-NN
+
+```{r}
+training <- c(1:47, 51:97, 101:146)
+testing <- c(48:50, 98:100, 147:150)
+train_set <- iris[training, ]
+test_set <- iris[testing, ]
+pred_knn <- knn_predict(train_set[, -5], test_set[, -5], train_set$Species, k=1)
+pred_knn
+```
+
+
+## 3.3) k-NN CV
+
+```{r}
+find_kcv <- function(X_train, Y_train, k = 1:10, nfold = 4) {
+  N <- nrow(X_train)
+  index <- N / nfold
+  ter <- matrix(0, nrow = length(k), ncol = nfold)
+  for (i in 1:nfold) {
+    index_i <- index * (i - 1) + 1
+    index_j <- index * i
+    index_itoj <- index_i:index_j
+    train_x <- X_train[-index_itoj, ]
+    test_x <- X_train[index_itoj, ]
+    train_y <- Y_train[-index_itoj]
+    test_y <- Y_train[index_itoj]
+    for (j in seq_along(k)) {
+      pred_knn <- knn_predict(train_x, test_x, train_y, k[j])
+      tbl <- table(test_y, pred_knn)
+      ter[j, i] <- 1 - sum(diag(tbl)) / sum(tbl)
+    }
+  }
+  k[which.min(apply(ter, 1, mean))]
+}
+
+find_kcv(train_set[ , -5], train_set[ , 5])
+```
+
+# 4) Confusion matrix
+
+```{r}
+set.seed(100)
+train_idx <- sample(nrow(iris), 90)
+train_set <- iris[train_idx, ]
+test_set <- iris[-train_idx, ]
+
+fit <- lda_fit(train_set[, 1:4], train_set[, 5])
+class_lda <- lda_predict(fit, test_set[, 1:4])$class
+prd_lda <- class_lda
+prd_lda[class_lda == 1] <- "setosa"
+prd_lda[class_lda == 2] <- "versicolor"
+prd_lda[class_lda == 3] <- "virginica"
+prd_lda <- factor(prd_lda)
+
+fit <- qda_fit(train_set[, 1:4], train_set[, 5])
+class_qda <- qda_predict(fit, test_set[, 1:4])$class
+prd_qda <- class_qda
+prd_qda[class_qda == 1] <- "setosa"
+prd_qda[class_qda == 2] <- "versicolor"
+prd_qda[class_qda == 3] <- "virginica"
+prd_qda <- factor(prd_qda)
+
+find_kcv(train_set[, 1:4], train_set[, 5])
+prd_knn <- knn_predict(train_set[, 1:4], test_set[, 1:4], train_set[, 5], k = 9)
+
+# confusion matrix
+table(test_set[, 5], prd_lda)
+table(test_set[, 5], prd_qda)
+table(test_set[, 5], prd_knn)
+
+# test error rate of lda
+1 - sum(diag(table(test_set[, 5], prd_lda))) / sum(table(test_set[, 5], prd_lda))
+
+# test error rate of qda
+1 - sum(diag(table(test_set[, 5], prd_qda))) / sum(table(test_set[, 5], prd_qda))
+
+# test error rate of knn
+1 - sum(diag(table(test_set[, 5], prd_knn))) / sum(table(test_set[, 5], prd_knn))
+```
+Test error rates of lda and qda are same. Test error rate of knn is greater than lda and qda.  
+
