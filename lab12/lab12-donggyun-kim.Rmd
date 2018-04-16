@@ -1,0 +1,100 @@
+---
+title: "Lab 12: Clustering"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "4/16/2018"
+output: html_document
+---
+
+# K-means clustering
+
+```{r}
+my_kmeans <- function(X, k) {
+  X <- as.matrix(X)
+  N <- nrow(X)
+  P <- ncol(X)
+  K <- k
+  cluster_sizes <- numeric(K)
+  cluster_means <- matrix(0, nrow = K, ncol = P)
+  clustering_vector <- numeric(N)
+  wss_cluster <- numeric(K)
+  bss_over_tss <- numeric(1)
+  
+  index <- sample(N, K)
+  centroids <- X[index, ]
+  centroids_new <- X[index, ]
+  distant2 <- matrix(0, nrow = N, ncol = K)
+  
+  l <- 1
+  iteration <- 100
+  while (l <= iteration) {
+    for (i in 1:N) {
+      for(j in 1:K) {
+        distant2[i, j] <- as.numeric(t(X[i, ] - centroids[j, ]) %*% (X[i, ] - centroids[j, ]))
+      }
+      min_k <- which.min(distant2[i, ])
+      clustering_vector[i] <- min_k
+    }
+    for (k in 1:K) {
+      index <- clustering_vector == k
+      centroids_new[k, ] <- apply(X[index, ], 2, mean)
+    }
+    if (sum(!centroids_new == centroids) == 0) {
+      break
+    }
+    centroids <- centroids_new
+    l <- l + 1
+  }
+  
+  cluster_means <- centroids_new
+  
+  for (k in 1:K) {
+    cluster_sizes[k] <- sum(clustering_vector == k)
+  }
+  
+  for (k in 1:K) {
+    index <- clustering_vector == k
+    wss_cluster[k] <- sum(apply(sweep(X[index, ], 2, centroids[k, ], "-"), 1, function(x) sum(x^2)))
+  }
+  
+  TSS <- sum(apply(sweep(X, 2, apply(X, 2, mean), "-"), 1, function(x) sum(x^2)))
+  BSS <- TSS - sum(wss_cluster)
+  bss_over_tss <- BSS / TSS
+  
+  list(cluster_sizes = cluster_sizes,
+       cluster_means = cluster_means,
+       clustering_vector = clustering_vector,
+       wss_cluster = wss_cluster,
+       bss_over_tss = bss_over_tss)
+}
+set.seed(1991)
+my_kmeans(iris[, 1:4], k = 3)
+set.seed(1991)
+kmeans(iris[, 1:4], centers = 3)
+```
+
+
+# Hierarchical clustering
+
+```{r}
+d <- dist(iris[, 1:4], method = "euclidean")
+hc.complete <- hclust(d, method = "complete")
+hc.average <- hclust(d, method = "average")
+hc.single <- hclust(d, method = "single")
+
+plot(hc.complete)
+cutree(hc.complete, k = 3)
+
+plot(hc.average)
+cutree(hc.average, k = 3)
+
+plot(hc.single)
+cutree(hc.single, k = 3)
+```
+
+
+
+
+
+
