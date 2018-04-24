@@ -1,0 +1,107 @@
+---
+title: "Lab 13: Tree-Based Methods"
+author: 
+- "Donggyun Kim"
+- "27008257"
+date: "4/24/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(ISLR)
+attach(Carseats)
+High <- ifelse(Sales <= 8, "No", "Yes")
+carseats <- data.frame(Carseats, High)
+```
+
+# Decision Trees
+```{r}
+library(tree)
+tree_carseats <- tree(High ~ . -Sales, carseats)
+
+summary(tree_carseats)
+plot(tree_carseats)
+text(tree_carseats, pretty = 0)
+tree_carseats
+```
+
+# Random Forests
+```{r}
+library(randomForest)
+set.seed(1991)
+n <- nrow(carseats)
+index <- sample(n, 0.8 * n)
+training <- carseats[index, ]
+test <- carseats[-index, ]
+RF_training <- randomForest(High ~ . - Sales, training, importance = TRUE)
+RF_predict <- predict(RF_training, newdata = test)
+tbl <- table(test$High, RF_predict)
+# test error rate
+1 - sum(diag(tbl)) / sum(tbl)
+# oob error rate
+1 - sum(diag(RF_training$confusion)) / sum(RF_training$confusion)
+importance(RF_training)
+varImpPlot(RF_training)
+```
+
+# Boosted Trees
+```{r}
+library(gbm)
+B <- 5000
+High <- ifelse(Sales <= 8, 0, 1)
+carseats <- data.frame(Carseats, High)
+training <- carseats[index, ]
+test <- carseats[-index, ]
+boosting_training <- gbm(High ~ . - Sales, data = training, 
+                         distribution = "bernoulli", n.trees = B)
+
+summary(boosting_training)
+
+b <- seq(from = 10, to = 5000, by = 10)
+
+boosting_predict <- predict(boosting_training, newdata = test,
+                            n.trees = b,
+                            type = "response")
+yhat_boosting <- matrix(0, nrow = nrow(boosting_predict), 
+                        ncol = ncol(boosting_predict))
+
+yhat_boosting[boosting_predict >= 0.5] <- 1
+
+error_rate <- numeric(length(b))
+for (i in seq_along(b)) {
+  error_rate[i] <- 1 - sum(yhat_boosting[, i] == test$High) / nrow(yhat_boosting)
+}
+
+plot(b, error_rate, type = "l", ylab = "Test error rate",
+     xlab = "The number of trees", las = 1, xaxt = "n")
+axis(1, c(10, seq(from = 500, to = 5000, by = 500)))
+
+for (j in 2:4) {
+  boosting_training <- gbm(High ~ . - Sales, data = training, 
+                         distribution = "bernoulli", n.trees = B,
+                         interaction.depth = j)
+  
+  boosting_predict <- predict(boosting_training, newdata = test,
+                            n.trees = b,
+                            type = "response")
+  
+  yhat_boosting <- matrix(0, nrow = nrow(boosting_predict), 
+                        ncol = ncol(boosting_predict))
+  
+  yhat_boosting[boosting_predict >= 0.5] <- 1
+  
+  error_rate <- numeric(length(b))
+
+  for (i in seq_along(b)) {
+    error_rate[i] <- 1 - sum(yhat_boosting[, i] == test$High) / nrow(yhat_boosting)
+  }
+  
+  plot(b, error_rate, type = "l", ylab = "Test error rate",
+       xlab = "The number of trees", las = 1, xaxt = "n")
+  axis(1, c(10, seq(from = 500, to = 5000, by = 500)))
+}
+```
