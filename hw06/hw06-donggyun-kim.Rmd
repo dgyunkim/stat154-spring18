@@ -1,0 +1,349 @@
+---
+title: "Problem Set 6"
+author:
+- "Donggyun Kim"
+- "27008257"
+date: "5/4/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+# Exploratory Data Analysis
+
+```{r}
+training <- read.csv("data/training.csv", row.names = 1)
+test <- read.csv("data/test.csv", row.names = 1)
+test <- test[, -1]
+
+# structure
+str(training)
+str(test)
+
+
+# summary statistics
+summary(training)
+summary(test)
+
+
+# histograms
+hist(training$age)
+hist(training$hours_per_week)
+hist(training$income)
+
+
+# proportion table
+names_ct <- names(training)[c(-1, -2, -5)]  # categorical variable names
+list_ct <- as.list(names_ct)
+names(list_ct) <- names_ct
+sapply(list_ct, function (x) {
+  round(prop.table(table(training[x])) * 100, 3)
+})
+
+
+# correlation matrix plot
+library(corrplot)
+corrplot(cor(training[, c(1, 2, 5)]), method = 'circle')
+
+# barplots and scatterplots
+library(ggplot2)
+ggplot(training, aes(x = age, y = income)) +
+  geom_point()
+ggplot(training, aes(x = hours_per_week, y = income)) +
+  geom_point()
+
+lapply(names_ct, function (x) {
+  ggplot(training, aes_string(x)) +
+    geom_bar()
+})
+```
+
+
+# Build a Classification Tree
+
+```{r}
+library(rpart)
+library(caret)
+library(pROC)
+
+# fit a tree with minsplit = 20 and cp = 0.01
+tree_training <- rpart(income ~ ., training, method = "class",
+                       control = rpart.control(minsplit = 20, cp = 0.01))
+tree_training
+plot(tree_training, margin = 0.15)
+text(tree_training, use.n = TRUE)
+alpha <- seq(from = 0, to = 0.001, by = 0.0001)
+set.seed(1991)
+folds <- createFolds(1:nrow(training))
+cost_mat <- matrix(0, nrow = length(alpha), ncol = length(folds))
+rownames(cost_mat) <- paste("alpha", seq_along(alpha))
+colnames(cost_mat) <- paste("folds", seq_along(folds))
+# 10-fold cross validation
+for (k in seq_along(folds)) {
+  for (i in seq_along(alpha)) {
+    # fit the largest tree with minsplit = 0 and cp = 0
+    tree_obj <- rpart(income ~ ., training[-folds[[k]], ], method = "class",
+                      control = rpart.control(minsplit = 0, cp = 0))
+    y <- training[folds[[k]], ]$income
+    # prune tree with each alpha
+    tree_prune <- prune.rpart(tree_obj, cp = alpha[i])
+    # number of leafs (terminal nodes)
+    size <- sum(tree_prune$frame$var == "<leaf>")
+    # predicted value
+    tree_predict <- predict(tree_prune, newdata = training[folds[[k]], ],
+                            type = "class")
+    # confusion matrix
+    tbl <- table(y, tree_predict)
+    # test error rate
+    error <- 1 - sum(diag(tbl)) / sum(tbl)
+    # cost 
+    cost_mat[i, k] <- error + alpha[i] * size
+  }
+}
+cost <- apply(cost_mat, 1, mean)
+plot(alpha, cost, type = "l")
+
+# optimal tuning parameter
+optpar_tree <-  alpha[which.min(cost)]
+optpar_tree
+
+tree_obj <- rpart(income ~ ., training, method = "class",
+                   control = rpart.control(minsplit = 0, cp = optpar_tree))
+
+# variable importance statistics
+tree_obj$variable.importance
+
+# training accuracy rate
+tree_predict <- predict(tree_obj, type = "class")
+y <- training$income
+tbl <- table(y, tree_predict)  # confusion matrix
+sum(diag(tbl)) / sum(tbl)
+
+# ROC curve
+y <- training$income
+prb <- predict(tree_obj, type = "prob")[, 2]
+tree_roc <- roc(
+  response = y,
+  predictor = prb)
+plot(tree_roc, las = 1, legacy.axes = TRUE)
+
+# AUC
+auc(tree_roc)
+```
+
+
+# Build a Bagged Tree
+
+```{r}
+B <- 100
+set.seed(1991)
+resample <- createResample(training$income, B)
+tree_bag <- list(0)
+for (b in 1:B) {
+  tree_bag[[b]] <- rpart(income ~ ., training[resample[[b]], ], 
+                         method = "class",
+                         control = rpart.control(minsplit = 0, cp = 0))
+}
+
+# aggregation
+alpha <- seq(from = 0, to = 0.002, by = 0.0001)
+cost_mat <- matrix(0, nrow = length(alpha), ncol = B)
+rownames(cost_mat) <- paste("alpha", seq_along(alpha))
+colnames(cost_mat) <- paste("bag", 1:B)
+for (b in 1:B) {
+  tree_obj <- tree_bag[[b]]
+  y <- training[-resample[[b]], ]$income
+  for (i in seq_along(alpha)) {
+      tree_prune <- prune.rpart(tree_obj, cp = alpha[i])
+      size <- sum(tree_prune$frame$var == "<leaf>")
+      tree_predict <- predict(tree_prune, newdata = training[-resample[[b]], ],
+                              type = "class")
+      tbl <- table(y, tree_predict)
+      error <- 1 - sum(diag(tbl)) / sum(tbl)
+      cost_mat[i, b] <- error + alpha[i] * size
+  }
+}
+cost <- apply(cost_mat, 1, mean)
+plot(alpha, cost, type = "l")
+
+# optimal tuning parameter
+optpar_bag <-  alpha[which.min(cost)]
+optpar_bag
+
+tree_obj <- rpart(income ~ ., training, method = "class",
+                   control = rpart.control(minsplit = 0, cp = optpar_bag))
+
+# variable importance statistics
+tree_obj$variable.importance
+
+# training accuracy rate
+tree_predict <- predict(tree_obj, type = "class")
+y <- training$income
+tbl <- table(y, tree_predict)  # confusion matrix
+sum(diag(tbl)) / sum(tbl)
+
+# ROC curve
+y <- training$income
+prb <- predict(tree_obj, type = "prob")[, 2]
+tree_roc <- roc(
+  response = y,
+  predictor = prb)
+plot(tree_roc, las = 1, legacy.axes = TRUE)
+
+# AUC
+auc(tree_roc)
+```
+
+
+# Build a Random Forest
+
+```{r}
+library(randomForest)
+training$income <- factor(training$income)
+set.seed(1991)
+RF <- randomForest(income ~ ., training, ntree = 100, importance = TRUE)
+plot(RF)
+
+B <- 100
+set.seed(1991)
+resample <- createResample(training$income, B)
+err_mat <- matrix(0, nrow = ncol(training) - 1, ncol = B)
+rownames(err_mat) <- paste(1:12, "variables")
+colnames(err_mat) <- paste("bag", 1:B)
+for (b in 1:B) {
+  for (i in 1:(ncol(training)-1)) {
+    rf <- randomForest(income ~ ., training[resample[[b]], ], 
+                       ntree = 100, mtry = i)
+    y <- training[-resample[[b]], ]$income
+    rf_predict <- predict(rf, newdata = training[-resample[[b]], ])
+    tbl <- table(y, rf_predict)
+    err_mat[i, b] <- 1 - sum(diag(tbl)) / sum(tbl)
+  }
+}
+var <- apply(err_mat, 1, mean)
+plot(1:(ncol(training)-1), var, type = "l")
+
+# optimal tuning parameter
+opt_var <- which.min(var)
+opt_var
+
+RF <- randomForest(income ~., training, ntree = 100, importance = TRUE,
+                   mtry = opt_var)
+
+# variable importance statistics
+importance(RF)
+
+# variable importance plot
+varImpPlot(RF)
+
+# training accuracy rate
+RF_predict <- predict(RF, type = "class")
+y <- training$income
+tbl <- table(y, tree_predict)  # confusion matrix
+sum(diag(tbl)) / sum(tbl)
+
+# ROC curve
+y <- training$income
+prb <- predict(RF, type = "prob")[, 2]
+tree_roc <- roc(
+  response = y,
+  predictor = prb)
+plot(tree_roc, las = 1, legacy.axes = TRUE)
+
+# AUC
+auc(tree_roc)
+```
+
+
+# Model Selection
+
+```{r}
+y <- test$income
+# classification tree
+tree_cl <- rpart(income ~ ., test, method = "class",
+                 control = rpart.control(minsplit = 0, cp = optpar_tree))
+y_hat_cl <- predict(tree_cl, type = "class")
+
+# confusion matrix
+tbl_cl <- table(y, y_hat_cl)
+tbl_cl
+
+# Sensitivity(TPR) and Specificity(TNR)
+TPR_cl <- tbl_cl[2, 2] / sum(tbl_cl[2, ])
+TPR_cl
+
+TNR_cl <- tbl_cl[1, 1] / sum(tbl_cl[1, ])
+TNR_cl
+
+
+# bagged tree
+tree_bag <- rpart(income ~ ., test, method = "class",
+                  control = rpart.control(minsplit = 0, cp = optpar_bag))
+y_hat_bag <- predict(tree_bag, type = "class")
+
+# confusion matrix
+tbl_bag <- table(y, y_hat_bag)
+tbl_bag
+
+# Sensitivity(TPR) and Specificity(TNR)
+TPR_bag <- tbl_bag[2, 2] / sum(tbl_bag[2, ])
+TPR_bag
+
+TNR_bag <- tbl_bag[1, 1] / sum(tbl_bag[1, ])
+TNR_bag
+
+
+
+# random forest
+test$income <- factor(test$income)
+rf <- randomForest(income ~ ., test, ntree = 100, importance = TRUE,
+                   mtry = opt_var)
+y_hat_rf <- predict(rf, type = "class")
+
+# confusion matrix
+tbl_rf <- table(y, y_hat_rf)
+tbl_rf
+
+# Sensitivity(TPR) and Specificity(TNR)
+TPR_rf <- tbl_rf[2, 2] / sum(tbl_rf[2, ])
+TPR_rf
+
+TNR_rf <- tbl_rf[1, 1] / sum(tbl_rf[1, ])
+TNR_rf
+
+
+# ROC curve
+prb_cl <- predict(tree_cl, type = "prob")[, 2]
+cl_roc <- roc(
+  response = y,
+  predictor = prb_cl)
+
+
+prb_bag <- predict(tree_bag, type = "prob")[, 2]
+bag_roc <- roc(
+  response = y,
+  predictor = prb_bag)
+
+
+prb_rf <- predict(rf, type = "prob")[, 2]
+rf_roc <- roc(
+  response = y,
+  predictor = prb_rf)
+
+
+plot(cl_roc, las = 1, legacy.axes = TRUE, col = "red", lwd = 2)
+plot(bag_roc, las = 1, legacy.axes = TRUE, col = "blue", lwd = 2, add = TRUE,
+     lty = 2)
+plot(rf_roc, las = 1, legacy.axes = TRUE, col = "green", lwd = 2, add = TRUE,
+     lty = 3)
+legend("topright", legend=c("Classification", "Bagging", "Random Forest"),
+       col=c("red", "blue", "green"), lty=1:3, cex=0.8)
+
+# AUC of cl, bag, and rf respectively
+c(auc(cl_roc), auc(bag_roc), auc(rf_roc))
+```
+
+
